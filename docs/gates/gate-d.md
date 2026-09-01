@@ -199,3 +199,15 @@ intentions, not findings — nothing below has been measured.**
    stripper would be silently biasing the corpus toward simple configs.
 4. Then, and only then, the hand-adjudication: ≥20 hits per heuristic (TP/FP, repo+path
    recorded for every one) and 20 non-flagged configs per heuristic for recall.
+
+---
+
+## 2026-09-02 — heuristics realigned to corpus `0.3.0`
+
+The harness was written verbatim from the brief before Gate E ran. Gate E round 3 changed
+`DC-SEC-001`'s `Detect` from name-keyed to value-keyed; the harness had not followed. All
+three rule-backed heuristics now mirror the `0.3.0` `Detect` text and are pinned by
+`docs/gates/fp-measure.test.mjs` (`node --test docs/gates/fp-measure.test.mjs`).
+`DC-FEAT-PIN` is unchanged and is still a candidate, not a rule. **No numbers were produced;
+the corpus is still empty.** When Gate D runs, run it against this version of the harness
+or later, never the one the brief specified.

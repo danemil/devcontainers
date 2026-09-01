@@ -9,15 +9,17 @@
 // WHAT THIS IS NOT
 // - Not the audit checker. The heuristics are proxies for the corpus rules'
 //   `Detect` steps, hand-simplified to regexes; they are neither as broad nor
-//   as careful as the prose they stand in for (DC-SEC-001 below is the clearest
-//   case: the corpus rule judges the VALUE, this proxy still keys on the NAME).
+//   as careful as the prose they stand in for. Their semantics are pinned to
+//   corpus 0.3.0 by fp-measure.test.mjs; when a Detect changes, change the
+//   test first.
 //   Read `proxyFor` before quoting a number as a property of the rule.
 // - Not a spec-grade JSONC parser. It strips comments and trailing commas
 //   without interpreting anything else, and reports its own parse-failure count.
 //   Watch `unparseable`: if it climbs past ~2% the corpus is being silently
 //   biased toward simple configs. DO NOT reuse the stripper in a checker.
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import process from 'node:process';
 
 const USAGE = 'usage: node docs/gates/fp-measure.mjs <corpus-dir>';
@@ -99,36 +101,69 @@ function flattenCommand(command) {
   return String(command ?? '');
 }
 
-const SECRET_SHAPED_KEY = /TOKEN|SECRET|PASSWORD|API_KEY|CREDENTIAL/i;
-const LOCAL_ENV_SUBSTITUTION = /^\$\{localEnv:/;
-const INSTALL_COMMAND = /\b(npm (ci|i|install)|yarn|pnpm|pip install|bundle install|go mod download|cargo build|mvn|gradle)\b/;
+// Corpus 0.3.0 DC-LIFE-001 Detect: the cacheable, expensive setup commands.
+const INSTALL_COMMAND = /\b(npm (ci|install)|yarn install|pnpm install|pip install|poetry install|bundle install|go mod download|cargo fetch|apt-get install|make|gradle|mvn)\b/;
 
+// A lifecycle hook is "trivial" for DC-LIFE-001 when absent or empty. The
+// corpus leaves "trivial" to judgement; this is the proxy's reading of it.
+const isTrivialHook = (command) => flattenCommand(command).trim() === '';
+
+// Corpus 0.3.0 DC-SEC-001 Detect. Order matters and mirrors the rule:
+//   1. substitution reference  -> never a finding, whatever the key
+//   2. recognisable credential -> finding, whatever the key
+//   3. secret-shaped key       -> finding unless an obvious placeholder
+//   4. anything else           -> not a finding
+const SUBSTITUTION = /^\$\{(localEnv|containerEnv):/;
+const CREDENTIAL_LITERAL = /^(sk_|ghp_|github_pat_|AKIA|xoxb-|glpat-|npm_)|-----BEGIN [A-Z ]*PRIVATE KEY|:\/\/[^/@\s]+:[^@\s]+@/;
+const SECRET_SHAPED_KEY = /TOKEN|SECRET|KEY|PASSWORD|PASSWD|CREDENTIAL|_PAT\b/i;
+const PLACEHOLDER = /^(changeme|change-me|replace-me|xxx+|todo|<[^>]*>|\$\{?[A-Z_]+\}?)$/i;
+
+function isCredentialEntry([key, rawValue]) {
+  const value = String(rawValue ?? '');
+  if (SUBSTITUTION.test(value)) return false;
+  if (CREDENTIAL_LITERAL.test(value)) return true;
+  if (SECRET_SHAPED_KEY.test(key)) return value !== '' && !PLACEHOLDER.test(value);
+  return false;
+}
+
+const envEntries = (d) => [
+  ...Object.entries(d.remoteEnv || {}),
+  ...Object.entries(d.containerEnv || {}),
+  ...Object.entries((d.build && d.build.args) || {}),
+];
+
+// Corpus 0.3.0 DC-PERF-001 Detect: a volume mount, a non-root user, no chown.
 const mountAsString = (m) => (typeof m === 'string' ? m : JSON.stringify(m));
+const isVolume = (m) => /type=volume|"type":"volume"/.test(mountAsString(m));
+const hasVolumeMount = (d) => (d.mounts || []).some(isVolume) || (d.workspaceMount != null && isVolume(d.workspaceMount));
+const runsAsNonRoot = (d) => [d.remoteUser, d.containerUser].some((u) => typeof u === 'string' && u !== '' && u !== 'root');
 
 /**
  * Each heuristic: an output id, the corpus rule it approximates (or null for a
  * candidate rule that is not in the corpus), and a predicate over the parsed
  * config. Predicates may throw on odd shapes; the runner counts that as "did
- * not fire".
+ * not fire". Semantics are pinned by fp-measure.test.mjs.
  */
 const HEURISTICS = [
   {
     id: 'DC-LIFE-001',
-    proxyFor: 'DC-LIFE-001',
-    test: (d) => INSTALL_COMMAND.test(flattenCommand(d.postCreateCommand)),
+    proxyFor: 'DC-LIFE-001 ("trivial" hook read as absent-or-empty)',
+    test: (d) =>
+      INSTALL_COMMAND.test(flattenCommand(d.postCreateCommand))
+      && isTrivialHook(d.onCreateCommand)
+      && isTrivialHook(d.updateContentCommand),
   },
   {
     id: 'DC-SEC-001',
-    proxyFor: 'DC-SEC-001 (name-keyed proxy; the corpus rule is value-keyed)',
-    test: (d) =>
-      Object.entries({ ...(d.remoteEnv || {}), ...(d.containerEnv || {}) })
-        .some(([k, v]) => SECRET_SHAPED_KEY.test(k) && !LOCAL_ENV_SUBSTITUTION.test(String(v))),
+    proxyFor: 'DC-SEC-001 (value-keyed; prefix list is the rule\'s own)',
+    test: (d) => envEntries(d).some(isCredentialEntry),
   },
   {
     id: 'DC-PERF-001',
-    proxyFor: 'DC-PERF-001 (ignores the non-root-user precondition)',
+    proxyFor: 'DC-PERF-001',
     test: (d) =>
-      (d.mounts || []).some((m) => /type=volume/.test(mountAsString(m)))
+      hasVolumeMount(d)
+      && runsAsNonRoot(d)
       && !/chown/.test(flattenCommand(d.postCreateCommand)),
   },
   {
@@ -178,4 +213,7 @@ function main(argv) {
   return 0;
 }
 
-process.exit(main(process.argv));
+export { parseJsonc, HEURISTICS, measure };
+
+const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) process.exit(main(process.argv));
