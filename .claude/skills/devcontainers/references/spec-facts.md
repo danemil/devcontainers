@@ -26,7 +26,7 @@ Everything untagged is traceable to a cited source.
 
 | # | Hook | Runs on | When |
 |---|------|---------|------|
-| 1 | `initializeCommand` | **HOST** | During initialization, before any container exists — on creation *and* on subsequent starts |
+| 1 | `initializeCommand` | **HOST** | "during initialization, including during container creation and on subsequent starts" |
 | 2 | `onCreateCommand` | container | First of the three creation commands, immediately after first start |
 | 3 | `updateContentCommand` | container | After `onCreate`, whenever new content is available in the source tree during creation |
 | 4 | `postCreateCommand` | container | Last creation command, once the container is assigned to a user |
@@ -46,10 +46,9 @@ states: "Note that `initializeCommand` is omitted, pending further discussions a
 design." A Feature that needs host-side work has no sanctioned hook; say so rather than
 inventing one. [lifecycle-contrib]
 
-`waitFor` gates how far the tool blocks before handing the environment over; it defaults to
-`updateContentCommand`, which is why `postCreateCommand` runs in the background after success
-is reported. Its legal values, and the one people reach for that is not among them, are
-`DC-LIFE-002`.
+`waitFor` gates how far the tool blocks before handing the environment over, and defaults to
+`updateContentCommand`. Its legal values, what the default implies for a hook that sits after
+it, and the value people reach for that is not among them, are all `DC-LIFE-002`.
 [json-ref], [base-schema]
 
 Failure propagates forward: "If one of the lifecycle scripts fails, any subsequent scripts will
@@ -106,15 +105,14 @@ Identical for all six hooks.
 | Form | Executed as | Consequence to watch |
 |------|-------------|----------------------|
 | string | through a shell (`/bin/sh`) | `&&` chains; shell quoting applies — `"echo foo='bar'"` prints `foo=bar` |
-| array | exec'd directly, **no shell** | `["echo","foo='bar'"]` prints `foo='bar'`; `["npm start && npm test"]` is one argv, not two commands |
+| array | exec'd directly, **no shell** | `["echo","foo='bar'"]` prints `foo='bar'` — quotes are preserved because nothing parses them |
 | object | every entry **in parallel** | key is a unique command name, value is a string or array; "Each command must exit successfully for the stage to be considered successful" |
 
 Spec example: `{ "postCreateCommand": { "server": "npm start", "db": ["mysql","-u","root","-p","my database"] } }`
 
 A Feature-contributed object-form hook runs its own entries in parallel but still blocks the
-next Feature and the user's hook. What to DO: read every hook's form before reasoning about it
-— the object form is the one single-string analysis silently skips. The normative rule is
-`DC-LIFE-003`. [parallel-lifecycle], [spec-reference]
+next Feature and the user's hook. What each form means for analysing a configuration, and what
+to do about it, is `DC-LIFE-003`. [parallel-lifecycle], [spec-reference]
 
 The environment a lifecycle command sees is assembled by the reference CLI as
 `userEnvProbe` results, then `--remote-env` values, then the config's `remoteEnv`, then
@@ -149,8 +147,8 @@ normative claim and the fix:
   image carries a *resolved* Feature set, not the `features` property.
 
 What to DO when a prebuild "did not pick up my change": identify which of those three froze,
-rather than rebuilding repeatedly. And note the scope — a project that never prebuilds is not
-misconfigured for putting installs in `postCreateCommand`.
+rather than rebuilding repeatedly. `DC-LIFE-001` carries the scope this applies in, and the
+remedy; take both from there rather than from this page.
 
 ---
 
@@ -315,30 +313,58 @@ follows the max rule. [image-metadata], [base-schema], [gpu-proposal]
 
 ### What the label can carry
 
-From `devcontainer.json`: `mounts`, `onCreateCommand`, `updateContentCommand`,
-`postCreateCommand`, `postStartCommand`, `postAttachCommand`, `customizations`, `remoteUser`,
-`userEnvProbe`, `remoteEnv`, `containerEnv`, `overrideCommand`, `portsAttributes`,
-`otherPortsAttributes`, `forwardPorts`, `shutdownAction`, `updateRemoteUserUID`,
-`hostRequirements`.
+**Take this from the merge table, not from the source's prose sentence.** The image-metadata
+document opens with a prose list — "Current dev container config that can be recorded in the
+image: …" — that is a *stale snapshot*, and the document says so itself two sections later:
+"We are adding support for `mounts`, `containerEnv`, `containerUser`, `init`, `privileged`,
+`capAdd`, and `securityOpt` to the devcontainer.json." The merge table is the current
+statement; its own header says it "notes which properties are currently supported coming from
+the devcontainer.json and which from the feature metadata". Six properties are marked in the
+table's devcontainer.json column but missing from the prose sentence, so a reader who takes the
+prose list will under-count. [image-metadata]
 
-From Feature metadata: `mounts`, `init`, `privileged`, `capAdd`, `securityOpt`, `entrypoint`,
-`customizations`. [image-metadata]
+Carried **from `devcontainer.json`** (every row marked in that column of the merge table):
+`init`, `privileged`, `capAdd`, `securityOpt`, `mounts`, `onCreateCommand`,
+`updateContentCommand`, `postCreateCommand`, `postStartCommand`, `postAttachCommand`,
+**`waitFor`**, `customizations`, **`containerUser`**, `remoteUser`, `userEnvProbe`, `remoteEnv`,
+`containerEnv`, `overrideCommand`, `portsAttributes`, `otherPortsAttributes`, `forwardPorts`,
+`shutdownAction`, `updateRemoteUserUID`, `hostRequirements`.
+
+Carried **from Feature metadata**: `mounts`, `init`, `privileged`, `capAdd`, `securityOpt`,
+`entrypoint`, `customizations`, and `id` (recorded, never merged). [image-metadata]
+
+`waitFor` and `containerUser` are bolded because they are the two the prose sentence omits and
+the table carries — `containerUser` twice over, since the "Additional devcontainer.json
+Properties" section names it explicitly. Both **are** label-storable. Do not conclude otherwise
+from the prose list.
 
 ### What the label never carries
 
-The complement of the list above. The **canonical copy of this list for the audit bucket table
-lives in `SKILL.md`**, under "My changes aren't taking effect"; this is the same list reproduced
-for AUTHOR and DEBUG readers, and it is not a second authority — if the two ever disagree,
-`SKILL.md` is the one other modes read and the divergence is a defect to fix there.
+**This list is not a complement, and must never be derived as one.** The two lists below do not
+partition the schema: a property absent from both is a property the image-metadata document is
+simply *silent* about, and silence is not immunity. `name` and `secrets`, for instance, appear
+nowhere in that document at all — `secrets` postdates it — so nothing here supports a claim
+either way about them.
+
+The list is enumerated, directly attested, and its **canonical copy lives in `SKILL.md`**, under
+"My changes aren't taking effect"; this is the same list reproduced for AUTHOR and DEBUG
+readers, and it is not a second authority — if the two ever disagree, `SKILL.md` is the one
+other modes read and the divergence is a defect to fix there.
 
 `initializeCommand`, `image`, `build.*`, `dockerComposeFile`, `service`, `runServices`,
 `appPort`, `runArgs`, `workspaceMount`, `workspaceFolder`, `features`,
 `overrideFeatureInstallOrder`.
 
-What to DO: for a property on this list, changing it and rebuilding *from a prebuilt image*
-does nothing — the change only takes effect on a recreate from `devcontainer.json`. For a
-property *not* on this list, absence from the file is not absence at runtime: the label may
-still supply it. To see the merged result rather than guessing:
+What to DO, in three cases rather than two:
+
+- **On the never-carries list** — changing it and rebuilding *from a prebuilt image* does
+  nothing; the change only takes effect on a recreate from `devcontainer.json`.
+- **On the can-carry list** — absence from the file is not absence at runtime; the label may
+  still supply it.
+- **On neither list** — say that the source is silent and check the merged configuration.
+  Never report label-immunity you inferred rather than read.
+
+To see the merged result rather than guessing:
 
 ```bash
 if command -v devcontainer >/dev/null 2>&1; then
@@ -387,7 +413,9 @@ Two consequences worth stating outright:
   not (§7).
 
 Codespaces also runs a default setup when `devcontainer.json` specifies no `postCreateCommand`;
-`customizations.codespaces.disableAutomaticConfiguration` turns that off. Its other keys are
+`customizations.codespaces.disableAutomaticConfiguration` turns that off (that key is in the
+specification document but not on the rendered containers.dev page — see the note under
+[Sources](#sources)). Its other keys are
 `repositories` (per-repository permission grants) and `openFiles` (paths relative to the repo
 root, opened in order, the first one activated). Prebuild behaviour is §2.
 [supporting-tools]
@@ -492,7 +520,7 @@ The consequences that decide which one to use:
 - Codespaces ignores bind mounts *except* the Docker socket (§5) — which is exactly why
   docker-outside-of-docker works there while the dind volumes are what survives.
 
-[features-repo, live 2026-09-01], [supporting-tools]
+[features-repo: live 2026-09-01], [supporting-tools]
 
 ---
 
@@ -553,11 +581,14 @@ Two consequences, and the second is the operational one:
    `openFiles` and `disableAutomaticConfiguration`; `customizations.jetbrains` and several
    cloud vendors' namespaces exist in vendor documentation and are registered nowhere central.
    The migration of the deprecated top-level twins is `DC-DEP-001`.
-2. **An unknown-property check must never descend into `customizations.*`.** There is nothing
-   to validate against. A key you do not recognise under `customizations` is not evidence of a
-   typo, a mistake, or an unknown property — it is the namespace working as designed. Report
-   nothing for it. This applies to writing, reviewing and debugging alike: stop at the
-   `customizations` boundary and check only above it.
+2. **Nothing under `customizations.*` can be checked against a property list.** There is no
+   list to check against. A key you do not recognise there is not evidence of a typo, a
+   mistake, or an unknown property — it is the namespace working as designed. When **writing**
+   a configuration, this is why a tool's settings belong under its own key here and why you
+   need not justify a name you have not seen before; when **debugging** one, it is why an
+   unfamiliar key under `customizations` is not a lead and a missing behaviour there is a
+   question for that tool's own documentation, not for the dev container schema. Stop at the
+   `customizations` boundary and reason only above it.
 
 For Feature metadata specifically, merging inside a namespace is defined: "each namespace under
 `customizations` is treated as a separate set of properties. For each of these sets the object
@@ -618,8 +649,19 @@ time and disk: never run either without the user's explicit confirmation.
 
 ## Sources
 
-Cached under `docs/sources/` in this repository, fetched and fact-checked 2026-08-31 unless a
-block says otherwise.
+Most keys resolve to a document cached under `docs/sources/` in this repository, fetched and
+fact-checked 2026-08-31. Four do not, and are marked in the table:
+
+- `[vscode-perf]` and `[features-repo]` — **live-fetched 2026-09-01**, not cached.
+- `[gh-prebuilds]` — **not cached**; §2's Codespaces prebuild quote is taken from the URL
+  below, which is also `DC-LIFE-001`'s cited source in `references/rules.md`. It cannot be
+  checked offline from this repository.
+- `[cli-source]` — **not cached as source code.** The claims attributed to it are readings of
+  the reference CLI's own files, recorded in `docs/RESEARCH-BRIEF.md`'s working notes rather
+  than taken from the artefacts. The filenames are given so a reader can check them upstream;
+  treat these as verified-by-inspection, not as quoted from a cached document.
+
+All twenty source URLs in the table were resolved live on 2026-09-01 and returned 200.
 
 | Key | Document |
 |---|---|
@@ -636,10 +678,21 @@ block says otherwise.
 | `[devcontainer-id]` | `${devcontainerId}` — <https://github.com/devcontainers/spec/blob/main/docs/specs/devcontainer-id-variable.md> |
 | `[lockfile]` | Lockfiles — <https://github.com/devcontainers/spec/blob/main/docs/specs/devcontainer-lockfile.md> |
 | `[gpu-proposal]` | GPU host requirement — <https://github.com/devcontainers/spec/blob/main/docs/specs/gpu-host-requirement.md> |
-| `[supporting-tools]` | Supporting tools, incl. the Codespaces divergence table — <https://containers.dev/supporting-tools> |
+| `[supporting-tools]` | Supporting tools, incl. the Codespaces divergence table — <https://github.com/devcontainers/spec/blob/main/docs/specs/supporting-tools.md>. Rendered, incomplete mirror: <https://containers.dev/supporting> (see the note below the table) |
 | `[cli-readme]` | Dev Container CLI README — <https://github.com/devcontainers/cli> |
 | `[cli-changelog]` | Dev Container CLI changelog — <https://github.com/devcontainers/cli/blob/main/CHANGELOG.md> |
 | `[cli-source]` | Reference CLI source — `src/spec-node/devContainersSpecCLI.ts`, `src/spec-common/injectHeadless.ts` — <https://github.com/devcontainers/cli> |
 | `[features-repo]` | Feature metadata, live-verified 2026-09-01 — <https://github.com/devcontainers/features/tree/main/src> |
 | `[vscode-perf]` | Improve disk performance, live-verified 2026-09-01 — <https://code.visualstudio.com/remote/advancedcontainers/improve-performance> |
 | `[gh-prebuilds]` | About Codespaces prebuilds — <https://docs.github.com/en/codespaces/prebuilding-your-codespaces/about-github-codespaces-prebuilds> |
+
+> **`[supporting-tools]` — where to look, and one live divergence.** The URL previously cited
+> here, `containers.dev/supporting-tools`, is dead: it 404s, as do its trailing-slash and
+> `.html` variants. The rendered page moved to <https://containers.dev/supporting>. Verified
+> 2026-09-01, the specification document in the spec repository is the better citation on two
+> counts: it is byte-identical to this repository's cached copy, and it is **more complete than
+> the rendered page** — `customizations.codespaces.disableAutomaticConfiguration`, cited in §5,
+> appears in the document and **not** on `containers.dev/supporting` today. All seven rows of
+> §5's divergence table were re-checked against both and appear verbatim in both. What to DO:
+> cite the spec-repo document; use the rendered page only as a reading convenience, and do not
+> treat its silence as the specification's.

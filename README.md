@@ -28,6 +28,19 @@ this file says so.
 
 ## Install
 
+> **Prerequisite — the two commands below do not work yet, for two independent reasons.**
+> The repository is **private**, so an unauthenticated fetch of it returns 404 and
+> `npx skills add danemil/devcontainers` cannot resolve it for anyone but the owner. And this
+> work sits on an **unpushed branch** (`devcontainer-agent-package`); nothing has been pushed
+> and the skill is not on `main`, so even with the repository public the documented command
+> would not find it. **Both commands become valid once the repository is public and this
+> branch is merged and pushed.** Whether the repository is published is the owner's decision
+> and has not been made — this file does not predict it. Until then the only route that works
+> is **Manual**, below, from a local checkout.
+>
+> The commands themselves are correct in form and are the ones Gate A measured. What is
+> missing is a reachable repository, not a working command.
+
 ### The supported channel
 
 ```sh
@@ -71,7 +84,7 @@ Gate B observed the Copilot CLI listing, selecting and resolving `references/` f
 with no `--allow-tool` flag.
 
 To use it **outside** that workspace, the only Copilot path that delivers the corpus is two
-steps:
+steps — the clone depends on the prerequisite at the top of this section:
 
 ```sh
 git clone https://github.com/danemil/devcontainers
@@ -293,7 +306,11 @@ a dependency install in `postCreateCommand`, a `TOKEN` in `remoteEnv`, an unpinn
 right mode engage, were rule IDs cited with tier tags, did `DC-ENV-001` come up on the
 `userEnvProbe` question, and was any refusal violated.
 
-**Results live in `docs/VERIFICATION.md`** — the recorded baseline, not this file.
+**Results live in `docs/VERIFICATION.md`** — the recorded baseline, not this file. Read it as
+a point-in-time measurement rather than a current statement: it records the `SKILL.md` hash it
+ran against, and `SKILL.md` has changed since (tier-tag and read-check fixes landed after that
+baseline). A baseline whose recorded hash no longer matches the file on disk has to be re-run
+before it can be cited as current, which is the whole reason it records a hash.
 
 ---
 
@@ -392,6 +409,50 @@ and this section with it.
 
 ---
 
+## `upstream/` — the one sanctioned projection of the corpus
+
+`upstream/awesome-copilot-devcontainers.instructions.md` is a self-contained
+`.instructions.md` file carrying all twelve rules **in instruction form** — assertion, what to
+look for, the concrete fix, and a source link — with **no `DC-` rule IDs and no severity
+labels**. It projects corpus `0.2.0`, including both narrowed `Detect` fields, each under a
+bolded **Do not report** paragraph.
+
+**It is a payload prepared for [`github/awesome-copilot`](https://github.com/github/awesome-copilot)
+and it has not been submitted.** No PR has been opened, so there is no outcome to record here.
+That catalogue contains zero devcontainer instruction, prompt or chat-mode files today.
+
+**Why a second copy of the corpus is allowed here and nowhere else.** Everywhere inside this
+package, restating a rule is forbidden: it creates a competing source of truth that no
+citation pass covers, and it hands the verification harness an answer key it can match against
+instead of the corpus. `upstream/` is the deliberate exception, because the file **leaves**
+this repository. On the other side there is no `rules.md` to cite into, no tier tag, no audit
+procedure and — the actual reason — **no checker to short-circuit.** A reader who finds this
+file with no explanation would reasonably conclude the no-projection rule is decorative. It is
+not; this is the single sanctioned crossing of it.
+
+**The obligation that comes with it: nothing checks this file.** It must be regenerated from
+`references/rules.md` whenever the corpus changes. It is the artifact in this repository most
+likely to drift silently, precisely because the property that makes the projection acceptable
+— no checker on the other side — also means no checker on this side.
+
+**Traps in their contribution process, measured rather than assumed.** Whoever opens the PR
+must know these; two of them will fail CI:
+
+- **Their README index is machine-generated and must never be hand-edited.** `npm start`
+  runs `eng/update-readme.mjs` and `eng/generate-marketplace.mjs`, which regenerate
+  `docs/README.instructions.md` and the root README tables. A GitHub Action **fails the PR if
+  running the generator would change anything**. Run it and commit what it produces. (The
+  original task brief said to update the index by hand; that instruction is wrong and
+  following it fails their check.)
+- **PRs target `main`, explicitly not `staged`.** Branching from `staged` "may be outright
+  rejected".
+- Frontmatter is exactly `description:` and `applyTo:`, both **single-quoted**. The H1 after
+  the frontmatter is load-bearing: the index generator takes it as the entry title.
+- Their CONTRIBUTING asks an AI agent to append `🤖🤖🤖` to the **PR title** for fast-tracked
+  review. Whether that applies depends on who presses the button; do not add it silently.
+- `npm install` in their repository pulls a full dependency tree and runs third-party install
+  scripts on the machine that opens the PR.
+
 ## Flip-triggers: when to stop hand-maintaining and adopt a generator
 
 Adopt [`rulesync`](https://github.com/dyoshikawa/rulesync) — which already generates Claude
@@ -420,6 +481,9 @@ base models have moved. **The usefulness evaluation should travel with any versi
 not only with the quarterly calendar. A `Detect` narrowed to kill a false positive is
 exactly the edit most likely to lose a true positive, and only a re-run can tell you whether
 it did.
+
+A version bump also obliges a re-generation of `upstream/`, which is a projection of the
+corpus with no checker behind it — see the section above.
 
 ---
 
@@ -458,8 +522,13 @@ Stated so nobody is surprised by an absence:
   on, with an `ERRATA` section at the end correcting it rather than rewriting it in place.
 - `docs/sources/` — 26 cached primary sources, so the citation pass can run offline for the
   nine rules that do not need a live fetch.
-- `docs/gates/` — the empirical gate results, including the harvest log and rate-limit
-  accounting for the Gate D search phase that did complete.
+- `docs/gates/` — the empirical gate results. `gate-d.md` carries the Gate D search-phase
+  numbers and the rate-limit accounting; the harvest artefacts themselves live under
+  `docs/gates/.harvest/`, which is gitignored, so `gate-d.md` **is** the record rather than a
+  pointer to one.
+- `upstream/awesome-copilot-devcontainers.instructions.md` — the unsubmitted
+  `github/awesome-copilot` payload and the project's only sanctioned prose projection of the
+  corpus; see the section above for why it is allowed and what it obliges.
 - `tools/wf-preflight.mjs` — unrelated to the skill; validates a Claude Code Workflow script
   before invocation, catching the failure mode where a markdown backtick inside a
   backtick-delimited prompt silently closes the template literal and the parser blames the
