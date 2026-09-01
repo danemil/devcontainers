@@ -4,3 +4,7 @@
 # Gate D corpus: reproducible from docs/gates/gate-d.md, not committed
 docs/gates/fp-corpus/
 docs/gates/.harvest/
+
+# Cached copy of a third-party docs page (code.claude.com), kept locally for
+# offline verification but not redistributed. DC-CLAUDE-001 cites the live URL.
+docs/sources/devcontainer.md
