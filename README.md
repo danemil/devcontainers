@@ -23,7 +23,7 @@ mechanism is **unproven** — see below.
 measured lift and zero harm cases entitle us to say. **Read the version carefully, because
 the two are no longer the same number.** Gate E passed against corpus **`0.2.0`**; the corpus
 now ships **`0.3.0`**, and the outstanding evaluation debt that creates is stated under
-Maintenance rather than glossed. The authoritative version is the one `references/rules.md`
+Maintenance rather than glossed. The authoritative corpus version is the one `references/rules.md`
 declares — this file is not a third source of truth for it. Everything below distinguishes
 what was measured from what was assumed. Where a thing is unproven, this file says so.
 
@@ -126,14 +126,25 @@ name: devcontainers
 description: Use when creating, editing, reviewing, validating or debugging a devcontainer.json…
 license: MIT
 metadata:
+  version: "<the package version, as SKILL.md declares>"
   corpus_version: "<whatever references/rules.md declares>"
   spec_verified: "2026-08-31"
+  author: Emil Dan
+  email: emil.dan@publicissapient.com
 ```
 
-The version is deliberately not written out here. `rules.md` is authoritative, the frontmatter
-copy exists so an installed skill can be identified without opening a reference file, and the
-third grep below is the only thing that keeps the two in step — a README that also stated it
-would be a third copy to forget.
+Neither version is written out here, and **they are not the same thing.** `version` tracks the
+package as a whole; `corpus_version` tracks the twelve-rule corpus in `references/rules.md`,
+which has bumped independently of the package and is currently ahead of it — one is not a typo
+for the other. `SKILL.md` declares the package version; `rules.md` remains authoritative for
+the corpus version, and the frontmatter copy of it exists so an installed skill can be
+identified without opening a reference file. The third grep below is the only thing that keeps
+that pair in step — a README that also stated the number would be a third copy to forget.
+
+**`author` and `email` sit inside `metadata`, not at the top level, and that placement is the
+whole point.** A top-level `author:` or `email:` would be a key outside the portable set, which
+is a hard error on the Skills API path. `metadata` is an open object, so attribution and the
+package version cost no top-level keys: the shipped count is still the four above.
 
 `allowed-tools` is the fifth. It is omitted because **the key is portable and its value
 grammar is not**: Claude Code writes `Bash(node:*)`, Copilot writes `shell(...)`. A single
@@ -150,6 +161,51 @@ The supported claim is exactly what was observed: *accepted by Copilot CLI 1.0.8
 scope, `.claude/skills/`.* Untested: `.github/skills/`, VS Code Copilot Chat, Copilot code
 review, and the Skills API path — which is the strictest validator and the one never probed.
 Re-test before relying on this if the Skills API becomes a target.
+
+---
+
+## The line budget, and why this file is never re-flowed
+
+`SKILL.md` is **502 lines against a 500-line budget**, and the overage is deliberate. The 500
+is Claude Code's *documented guidance*, not a host limit enforced by either host — nothing is
+broken at 502, and both hosts discover and list the skill at that length. The two lines are the
+three `metadata` sub-keys carrying attribution and the package version. Trading something the
+author asked for against a cosmetic budget is the wrong direction, so the budget gives.
+
+**No safe reflow reaches 499**, and this was measured rather than assumed. Of the 37 paragraphs
+in the file that could ever save a line by re-wrapping, **31 are excluded** — they contain an
+indent, a list, a quoted phrase, a multi-backtick enumeration, a multi-bold enumeration, or an
+`X, Y and Z` series. Safe savings at wraps 105, 110 and 115 is **zero**. Closing a two-line gap
+would take wrap 140 against a file wrapped at about 98, re-flowing six paragraphs at a second
+visible width — which is a restyling of the file, not a cosmetic tidy, and not worth two lines.
+
+**Why the guard exists, which is the useful half.** A mechanical reflow of this file has
+silently damaged it four times, always the same way: a short enumeration inside flowing prose
+loses an item across a wrap and leaves behind a perfectly grammatical sentence. This round the
+proposed fix would have split `**installed but not run**` across a newline — the state this
+file's own text calls *"the state most easily misread as a pass"*. Grammatical after the break,
+invisible to a reader, and it takes a checker parsing that enumeration from three to two. The
+banned green-phrase list — the summary lines refusal 3 forbids over an unchecked area — has been
+damaged this way more than once, including a wrap that split one phrase and took its check from
+one to zero.
+
+**The standing rule: this file is not to be mechanically re-flowed.** Not by a script, not at a
+wider width, not "just this once" for a line or two. Future line-budget pressure is resolved one
+of two ways — move content into a reference file the mode **already loads**, or accept the
+overage and record it here. Never by a reflow.
+
+Moving content into a reference a mode does **not** load is a correctness change wearing a
+budget change's clothes. The thirteen-item not-label-storable list under "My changes aren't
+taking effect" is fenced **non-movable** for exactly that reason: AUDIT's bucket table reads it,
+and AUDIT does not load `spec-facts.md`. `SKILL.md`'s own editing note says the same thing at
+the point of temptation.
+
+One thing worth stating plainly, because it is the first time in this project that a recorded
+lesson **prevented** a defect instead of explaining one afterwards: the guard was written from
+four past failures, and applying it invalidated the premise of the very proposal it was
+guarding. The three lines a reflow was supposed to recover were all inside guarded paragraphs —
+including the exact paragraph damaged four times before. The moved number is the bug, and the
+moved number was the proposal's own: three to zero.
 
 ---
 

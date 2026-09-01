@@ -1,5 +1,9 @@
 # Dev container spec facts
 
+author: Emil Dan
+
+email: emil.dan@publicissapient.com
+
 Mechanics, not rules. `references/rules.md` says what is **wrong** and what to **change**;
 this file says how the machinery **works** — the orderings, the merge table, the resolution
 algorithm, the substitution lists, the CLI surface. When a mechanic here has a normative

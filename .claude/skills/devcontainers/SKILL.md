@@ -3,8 +3,11 @@ name: devcontainers
 description: Use when creating, editing, reviewing, validating or debugging a devcontainer.json, .devcontainer/ directory or Dev Container Feature, or when a containerised dev environment behaves differently from the host, fails to build, or is slow to start. Covers the containers.dev specification, Features, lifecycle commands, Codespaces prebuilds, and the tools that support them. Does not cover Dev Container Template authoring.
 license: MIT
 metadata:
+  version: "0.1.0"  # the package; corpus_version below tracks the twelve-rule corpus, which bumps independently
   corpus_version: "0.3.0"
   spec_verified: "2026-08-31"
+  author: Emil Dan
+  email: emil.dan@publicissapient.com
 ---
 
 # Dev containers

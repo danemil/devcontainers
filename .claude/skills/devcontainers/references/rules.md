@@ -1,5 +1,9 @@
 # Dev container rules
 
+author: Emil Dan
+
+email: emil.dan@publicissapient.com
+
 corpus_version: 0.3.0
 
 This line is the authoritative corpus version. An audit report that stamps a version reads it
