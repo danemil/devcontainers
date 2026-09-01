@@ -29,11 +29,9 @@ on demand when a specific rule turns out to be implicated.
 
 ## Before any mode: find the config
 
-Discovery precedence, highest first:
-
-1. `.devcontainer/devcontainer.json`
-2. `.devcontainer.json`
-3. `.devcontainer/<folder>/devcontainer.json` — exactly one level deep, not recursive
+Discovery precedence, highest first: `.devcontainer/devcontainer.json`, then
+`.devcontainer.json`, then `.devcontainer/<folder>/devcontainer.json` — that third one exactly
+one level deep, not recursive.
 
 Read the file that actually wins — a repo with two of these has one live config and one that
 looks live, and several "my change did nothing" reports are exactly that.
@@ -42,10 +40,9 @@ looks live, and several "my change did nothing" reports are exactly that.
 parser reports a syntax error on a valid file. Check for `//` and `/* */` before calling one
 malformed.
 
-**The file on disk is not the whole configuration.** Features contribute lifecycle commands
-and environment, and a base image can carry a `devcontainer.metadata` label that merges in —
-normally invisible without pulling the image. Say so rather than analysing the on-disk file
-as if it were complete.
+**The file on disk is not the whole configuration.** Features contribute lifecycle commands and
+environment, and a base image can carry a `devcontainer.metadata` label that merges in — normally
+invisible without pulling the image. Say so rather than treating the file as complete.
 
 ---
 
@@ -61,13 +58,12 @@ command -v docker >/dev/null 2>&1 && docker scout version >/dev/null 2>&1 \
   && echo "available: docker scout" || echo "not available: docker scout"
 ```
 
-A tool being absent is a normal outcome, not a blocker. Report it and continue. Never
-install a tool, never suggest installing one as a prerequisite for answering.
+A tool being absent is a normal outcome, not a blocker: report it and continue. Never install
+one, and never suggest installing one as a prerequisite for answering.
 
 **If the surface you are running on cannot execute commands at all** — some review surfaces
-cannot — do not write as though a command ran. Treat every tool as not available, do the
-whole analysis by reading, and print the full "not checked" block. Nothing in this skill is
-gated on running anything.
+cannot — do not write as though a command ran. Treat every tool as not available, analyse by
+reading, and print the full "not checked" block. Nothing here is gated on running anything.
 
 ### Two official oracles — delegate to them
 
@@ -86,7 +82,7 @@ Use its output as the answer. Cite `DC-FEAT-001` for why the override you were a
 suggest cannot do what it looks like it does. If the CLI is not available, say the order was
 not resolved and describe the inputs you can see, without asserting a final order.
 
-**Feature authoring conformance.** For someone writing or maintaining a Feature, the official
+**Feature authoring conformance.** For someone writing or maintaining a Feature the official
 harness is the answer, not a hand-written checklist:
 
 ```bash
@@ -117,7 +113,7 @@ These hold in every mode.
 
 On refusal 3: the failure mode is a reader skimming a report, seeing no complaint about image
 vulnerabilities, and concluding the image is clean. Never write a summary line — "no security
-issues", "looks good", "all clear" — that covers an area you did not check.
+issues", "looks good" — covering an area you did not check.
 
 ---
 
@@ -125,10 +121,10 @@ issues", "looks good", "all clear" — that covers an area you did not check.
 
 Read and report. **Do not edit any file in this mode.**
 
-**Load `references/rules.md` now.** The twelve rules, their severities, tiers, sources,
-`Detect` and `Fix` live there and nowhere else. Never restate a rule from memory or reason
-about what one "probably" says — open the file. If it cannot be read, say the corpus was
-unavailable and stop: an audit from a remembered corpus is worse than no audit.
+**Load `references/rules.md` now.** The twelve rules, their severities, tiers, sources, `Detect`
+and `Fix` live there and nowhere else. Never restate a rule from memory or reason about what one
+"probably" says — open the file. If it cannot be read, say the corpus was unavailable and stop:
+an audit from a remembered corpus is worse than no audit.
 
 ### Procedure
 
@@ -136,10 +132,10 @@ unavailable and stop: an audit from a remembered corpus is worse than no audit.
 2. Parse it as JSONC. Note the Features, the base image or Dockerfile, and every lifecycle
    hook present.
 3. Note what you cannot see: the image metadata label, private Feature contents, the resolved
-   install order without the CLI. These become "not checked" lines, not assumptions.
-4. Run the tool probe. Run only what is available and only what is read-only.
-5. Walk the twelve rules in `references/rules.md` order, applying each rule's own `Detect`.
-6. Emit the report in the format below.
+   install order without the CLI. These become "not checked", not assumptions.
+4. Run the tool probe; run only what is available and read-only.
+5. Walk the twelve rules in `references/rules.md` order, applying each rule's own `Detect`, then
+   emit the report below.
 
 ### Report format
 
@@ -159,49 +155,50 @@ Every finding line carries the rule ID and the tier tag. No exceptions. The shap
 DC-XXX-NNN  [TIER]  SEVERITY  <file>:<line>  <what was found>
 ```
 
-Severity and tier are corpus-owned and they change. Read both from the `Severity` and `Tier`
-fields of the rule you just opened — never from memory, never from an example. The tier tag
-is printed on every line so a reader who quotes one line still carries the SPEC/OPINION
-distinction with it; an `[OPINION]` line must never be phrased as a spec requirement.
+Severity and tier are corpus-owned and they change. Read both from the rule you just opened —
+never from memory, never from an example. The tier tag is printed on every line so a reader who
+quotes one still carries the SPEC/OPINION distinction; an `[OPINION]` line must never be
+phrased as a spec requirement.
 
 Give each finding the fix from the rule's own `Fix` field, kept to the change rather than
-expanded into a rewrite. Treat a `Fix` snippet as illustrative: AUDIT neither edits nor runs,
-and anything in one that builds or starts a container needs explicit confirmation (refusal 5).
+expanded into a rewrite. `Fix` snippets are illustrative: AUDIT neither edits nor runs, and
+anything in one that builds or starts a container needs explicit confirmation (refusal 5).
 
-**A finding with no rule ID is not a finding.** If you noticed something real that no rule
-covers, put it under a separate `Observations` heading, label it as outside the corpus, and
-do not give it a severity.
+**A finding with no rule ID is not a finding.** Put anything real that no rule covers under a
+separate `Observations` heading, labelled as outside the corpus, with no severity.
 
 ### Every rule lands in exactly one bucket
 
-Each of the twelve rules ends up in exactly one of four places, and the buckets total twelve
-— reconcile before you emit. A rule silently missing from the report is the same failure as
-"not checked" reading as "passed".
+Each of the twelve rules ends up in exactly one of four places and the buckets total twelve —
+reconcile before you emit. A rule silently missing is the same failure as "not checked" reading
+as "passed".
 
 | Bucket | Use it only when |
 | --- | --- |
 | **finding** | the firing input is present in the file and wins the merge — what you found, you found |
-| **checked, no finding** | *every* property the `Detect` reads is label-immune, or present in the file and winning |
+| **checked, no finding** | you actually read every input the `Detect` names, **and** every property it reads is label-immune or present in the file and winning |
 | **not checked** | anything else — an input was unavailable, or the label could still supply what fires the rule |
 | **not applicable** | the rule's own `Detect` scopes it out of this config |
 
-Why the two middle rows differ. For every property these twelve rules read,
-`devcontainer.json` "is considered last" when the order matters (`image-metadata.md`), so a
-value present in the file wins — but the label can still **add** what the file never showed:
-lifecycle commands and `mounts` are collected lists, `remoteEnv` / `containerEnv` merge per
-variable. (A claim about these rules' properties, not a law of the merge system; a few merge
-the other way.) Hence: **an audit can soundly report what it found, not that it is clean.**
+Evaluate the rows in order **4, 1, 2, 3** — scope out, then what fired, then what you were
+entitled to call clean, then everything left. Row 2 has two conjuncts and needs both: a rule
+whose inputs you never read is not clean, however label-immune its properties are.
+
+Why the two middle rows differ. For every property these twelve rules read, `devcontainer.json`
+"is considered last" when the order matters (`image-metadata.md`), so a value present in the
+file wins — but the label can still **add** what the file never showed: lifecycle commands and
+`mounts` are collected lists, `remoteEnv` / `containerEnv` merge per variable. (A claim about
+these rules' properties, not a law of the merge system; a few merge the other way.) Hence:
+**an audit can soundly report what it found, not that it is clean.**
 
 Working a row needs the `Detect`, the config, and whether each property it names is
 label-storable — the twelve-item list under "My changes aren't taking effect" is the in-file
 source for that last input, and a compound `Detect` is only as sound as its weakest conjunct.
-The on-disk file is not necessarily the whole config, whatever the corpus says about *files*.
 
-A rule goes in **not applicable** only when its own `Detect` scopes it out — a rule limited to
-configs installing a particular tool, applied to one that does not; a Feature-authoring rule,
-applied to a repo that authors none. Name the condition. If you cannot decide which bucket a
-rule belongs in, it is **not checked**. Not having looked is not the same as having looked and
-found nothing.
+**Not applicable** needs the `Detect`'s own scope clause — a rule limited to configs installing
+a particular tool, applied to one that does not; a Feature-authoring rule, applied to a repo
+that authors none. Name the condition. If you cannot decide, it is **not checked**: not having
+looked is not the same as having looked and found nothing.
 
 ### The not-checked block
 
@@ -249,12 +246,15 @@ plus the non-rule areas in the not-checked block above.
 
 That is a thin audit and it is the honest one for those inputs — pulling the image or running
 the CLI is what moves rules out of "not checked", and an empty no-finding bucket is a result,
-not a malfunction. `DC-DEP-001` is the one rule of the twelve whose whole input set is
-label-immune, so it is sound in both directions: had it not fired, it would have been the one
-legitimate "checked, no finding" entry here. Every placement follows from the scenario plus
-the rule's own `Detect` — re-derive them rather than copying this shape. What does not vary is
-the reconciliation: twelve, every time. Never merge the buckets, never let a green-sounding
-sentence stand in for any of them, and never resolve an unplaceable rule by dropping it.
+not a malfunction. `DC-DEP-001` is the clean case for that bucket: every property its `Detect`
+reads is label-immune **and** was readable here, so it is sound in both directions — had it not
+fired it would have been a legitimate "checked, no finding" entry. Label-immunity alone is not
+enough. `DC-FEAT-001` and `DC-FEAT-002` read only label-immune properties too and are still not
+checked, because row 2's first conjunct fails: their inputs were never read. Every placement
+follows from the scenario plus the rule's own `Detect` — re-derive rather than copy. What does
+not vary is the reconciliation: twelve, every time. Never merge the buckets, never let a
+green-sounding sentence stand in for any of them, and never resolve an unplaceable rule by
+dropping it.
 
 ---
 
@@ -266,38 +266,35 @@ Write or modify a configuration.
 gating, prebuild behaviour, Feature resolution, image metadata merge rules, Codespaces
 divergences, substitutions, the CLI surface. Use it instead of recalling property names.
 
-**If it cannot be read, say so in your first sentence and continue in a narrowed mode.** You
-may still edit properties already present in the user's file and still cite rule IDs. You may
-not introduce a property that is not already there, assert a default, or claim a substitution
-or CLI flag exists, without a source you can point at — the spec is at
-<https://containers.dev/implementors/json_reference/>. Do not fill the gap from memory and
-present the result as cited.
+**If it cannot be read, say so in your first sentence and continue in a narrowed mode.** You may
+still edit properties already present in the user's file and still cite rule IDs. You may not
+introduce a property that is not already there, assert a default, or claim a substitution or CLI
+flag exists, without a source you can point at — the spec is at
+<https://containers.dev/implementors/json_reference/>. Never fill the gap from memory.
 
 ### Rules of engagement
 
-- **State defaults explicitly and cite them.** Name the default you are relying on and where
-  it comes from, taking the value from the rule or the spec rather than from this page. A
-  reader who does not know a default cannot tell your choice from an accident.
-- **Change only what was asked.** Do not reorder keys, reformat, strip comments, or "tidy"
-  the rest of the file (refusal 6). If you think something else is wrong, say so; do not fix
-  it unasked.
+- **State defaults explicitly and cite them**, taking the value from the rule or the spec
+  rather than from this page. A reader who does not know a default cannot tell your choice
+  from an accident.
+- **Change only what was asked.** Do not reorder keys, reformat, strip comments or "tidy" the
+  rest of the file (refusal 6). If something else is wrong, say so; do not fix it unasked.
 - **Do not invent property names.** Check the schema facts in `references/spec-facts.md`, and
   when checking for unknown properties never descend into `customizations.*` — that namespace
   is intentionally open, has no registry or schema constraint, and any tool may claim a key.
 - **Prefer an image plus Features over a Dockerfile** when a maintained Feature exists; reach
   for a Dockerfile when it does not. `[OPINION]`
-- **Pin versions.** An untagged Feature or image reference means `latest` and makes the
-  environment non-reproducible from one week to the next.
+- **Pin versions.** An untagged Feature or image means `latest`, and a non-reproducible
+  environment from one week to the next.
 - **Say which hook you chose and why** whenever you place a lifecycle command, and open the
   rule that governs the choice rather than paraphrasing it — `DC-LIFE-001` for which hooks a
   prebuild bakes, `DC-LIFE-003` for the non-string forms, `DC-LIFE-002` for `waitFor`.
-- **Cite the rule for the decision**, and take the claim from the rule rather than from this
-  page. Routing by topic: secrets → `DC-SEC-001`; `remoteUser` / `containerUser` →
-  `DC-USER-001`; environment that lifecycle commands must see → `DC-ENV-001`; deprecated
-  top-level properties → `DC-DEP-001`; named volumes and workspace mounts → `DC-PERF-001`;
-  Feature install order → `DC-FEAT-001`; Feature idempotence and rebuild behaviour →
-  `DC-FEAT-002`; writing a Feature's `install.sh` → `DC-FEAT-003`; Claude Code inside the
-  container → `DC-CLAUDE-001`.
+- **Cite the rule for the decision**, taking the claim from the rule rather than from this page.
+  Routing by topic: secrets → `DC-SEC-001`; `remoteUser` / `containerUser` → `DC-USER-001`;
+  environment lifecycle commands must see → `DC-ENV-001`; deprecated top-level properties →
+  `DC-DEP-001`; named volumes and workspace mounts → `DC-PERF-001`; Feature install order →
+  `DC-FEAT-001`; Feature idempotence and rebuilds → `DC-FEAT-002`; writing a Feature's
+  `install.sh` → `DC-FEAT-003`; Claude Code in the container → `DC-CLAUDE-001`.
 - **Label every non-spec recommendation `[OPINION]` inline**, at the point of the
   recommendation, not in a footnote.
 
@@ -305,7 +302,7 @@ present the result as cited.
 
 Say plainly that the change does not take effect until the container is rebuilt, and give the
 command — but do not run it. `devcontainer up` and `docker build` need explicit confirmation
-(refusal 5); both take minutes and consume disk.
+(refusal 5) and both cost minutes and disk.
 
 ```bash
 command -v devcontainer >/dev/null 2>&1 && echo "devcontainer available — ask before running:  devcontainer up --workspace-folder ."
@@ -348,16 +345,15 @@ the first cause that explains the observed behaviour. Load `references/spec-fact
 mechanics; open `references/rules.md` on demand when a specific rule turns out to be
 implicated.
 
-**If a reference file cannot be read, say so and keep going** — the symptom lists stand on
-their own. Without `spec-facts.md`, do not assert a default, an enum, a merge rule or a CLI
-flag from memory. Without `rules.md`, you still have the observable and the mechanism: give
-those, then say plainly that the rule's normative half — what is actually wrong and what to
-change — is unavailable here, and name the ID for the user to look up. Never supply that half
-from memory. An honest dead end is the correct output; an invented answer is not.
+**If a reference file cannot be read, say so and keep going** — the symptom lists stand on their
+own. Without `spec-facts.md`, do not assert a default, an enum, a merge rule or a CLI flag from
+memory. Without `rules.md`, you still have the observable and the mechanism: give those, then say
+plainly that the rule's normative half — what is wrong and what to change — is unavailable here,
+and name the ID to look up. An honest dead end is the correct output; an invented answer is not.
 
 The lists name an observable and route to a rule. They deliberately do not carry the rule's
-claim, its severity or its tier — those are corpus-owned and they change. Open the rule
-before asserting anything normative, or say that you could not.
+claim, severity or tier — those are corpus-owned and they change. Open the rule before asserting
+anything normative, or say that you could not.
 
 Ask for the actual error text before theorising. "It won't build" plus the first fifteen
 lines of output resolves faster than any list here.
@@ -382,7 +378,7 @@ lines of output resolves faster than any list here.
    pull, not at build.
 
 Only after the list: if the CLI is available and the user confirms, a build reproduces it
-locally. Ask first (refusal 5).
+locally — ask first (refusal 5).
 
 ### "It behaves differently in Codespaces"
 
@@ -392,8 +388,8 @@ assuming a bug.
 1. **`customizations.codespaces` and `hostRequirements` are read from `devcontainer.json`
    only**, not from the image metadata label — so a value that reached your local container
    via a base image label does not apply there.
-2. **Some local-only properties are simply not honoured:** bind mounts other than the Docker
-   socket, the `"host:port"` form of `forwardPorts`, and `shutdownAction`.
+2. **Some local-only properties are not honoured:** bind mounts other than the Docker socket,
+   the `"host:port"` form of `forwardPorts`, and `shutdownAction`.
 3. **A prebuild changes what has already run by the time you attach.** The observable shape:
    setup work that is finished on one side is still running, or missing, on the other — "the
    environment is ready instantly locally but the prebuilt Codespace still installs
@@ -409,13 +405,12 @@ assuming a bug.
 2. **The expensive step is in a hook that runs every time.** Find which hook it is in, then
    check that against what a prebuild bakes — `DC-LIFE-001`.
 3. **Bind-mount I/O penalty** on macOS and Windows, for directories with many small files
-   (`node_modules`, `.venv`, build caches). The tell is that the slowness is in file access,
-   not in the network or the build, and that it scales with file count rather than size.
-   `DC-PERF-001` covers what to do about it and what the fix costs you afterwards — do not
-   propose a volume without reading it.
-4. **Windows only:** a repository living under `/mnt/c` and accessed from WSL2 crosses a
-   filesystem boundary on every access; moving it into the WSL filesystem often beats every
-   other change here. `[OPINION]` — this is a host-side observation, not a rule and not spec.
+   (`node_modules`, `.venv`, build caches). The tell: slowness is in file access rather than
+   the network or the build, and scales with file count rather than size. `DC-PERF-001` covers
+   the fix and what it costs afterwards — do not propose a volume without reading it.
+4. **Windows only:** a repository under `/mnt/c` accessed from WSL2 crosses a filesystem
+   boundary on every access; moving it into the WSL filesystem often beats every other change
+   here. `[OPINION]` — a host-side observation, not a rule and not spec.
 5. **A second image is being built that nobody asked for.** If the build log shows a derived
    image appearing after the main one, go to `DC-USER-001`.
 6. **Attach is waiting on a hook.** `waitFor` decides how far startup runs before the editor
@@ -441,7 +436,7 @@ assuming a bug.
    decided, and what happens to a Feature that is asked to install twice — are `DC-FEAT-002`.
    Open it before explaining the behaviour.
 6. **The property never travels in the image metadata label**, so changing it and rebuilding
-   from a prebuilt image changes nothing. Not label-storable: `initializeCommand`, `image`,
+   from a prebuilt image does nothing. Not label-storable: `initializeCommand`, `image`,
    `build.*`, `dockerComposeFile`, `service`, `runServices`, `appPort`, `runArgs`,
    `workspaceMount`, `workspaceFolder`, `features`, `overrideFeatureInstallOrder`.
    **`mounts` is not on that list — it does travel, and it merges** (collected, last source
@@ -452,16 +447,16 @@ assuming a bug.
 
 This is `DC-ENV-001` far more often than anything else. Start there.
 
-1. **Your interactive terminal is not the shell the lifecycle command ran in.** Which shell
-   startup files contribute to the lifecycle environment is decided by `userEnvProbe`. Read
-   the config to see whether it is set, then open `DC-ENV-001` for the legal values and which
-   one is in force when it is not set. Do not change the setting before reading the rule.
+1. **Your interactive terminal is not the shell the lifecycle command ran in.** `userEnvProbe`
+   decides which shell startup files contribute. Read the config to see whether it is set, then
+   open `DC-ENV-001` for the legal values and which is in force when it is not. Do not change
+   the setting before reading the rule.
 2. **Find where the variable is actually set.** `.bashrc` is read by interactive shells,
    `.profile` and `.bash_profile` by login shells. Better: set it in `containerEnv` or
    `remoteEnv` so it does not depend on shell startup at all — not for secrets (`DC-SEC-001`).
 3. **Version managers are the classic case.** `nvm`, `pyenv`, `rbenv` and `sdkman` hook an rc
-   file; if that file is not sourced for the probe in effect, the tool is on PATH in your
-   terminal and absent in the hook.
+   file; if it is not sourced for the probe in effect, the tool is on PATH in your terminal
+   and absent in the hook.
 4. **`containerEnv` and `remoteEnv` are not interchangeable.** `containerEnv` is set on the
    container and visible to everything in it; `remoteEnv` applies to the remote user's
    sessions and lifecycle commands. Anything the entrypoint needs must be in `containerEnv`.
@@ -469,9 +464,9 @@ This is `DC-ENV-001` far more often than anything else. Start there.
    lifecycle commands as the remote user, so a tool installed into root's home is not on the
    remote user's PATH and its files may be root-owned. Check where the tool landed; if a
    Feature put it there, `DC-FEAT-003` is how a Feature learns which user it installs for.
-6. **Ordering within a hook.** Feature-contributed commands always run before the user's
-   command for the same hook, so a Feature's setup is done but a *later* user hook's is not.
-   Check you are not depending on something a subsequent hook produces.
+6. **Ordering within a hook.** Feature-contributed commands always run before the user's for
+   the same hook, so a Feature's setup is done but a *later* user hook's is not. Check you are
+   not depending on what a subsequent hook produces.
 7. **Secrets reach the two environments by different routes.** A value you can echo in the
    terminal may be absent in the hook, or the reverse; where a real secret should come from is
    `DC-SEC-001`. Do not diagnose this one by asking the user to print the value.
@@ -481,16 +476,21 @@ This is `DC-ENV-001` far more often than anything else. Start there.
 ## Reference files
 
 - `references/rules.md` — the twelve rules, each with severity, tier (`SPEC` or `OPINION`),
-  source URL, verbatim quote, verification date, `Detect` and `Fix`. The only place rule
-  content lives; every mode cites IDs into it rather than restating it. Loaded in AUDIT.
+  source URL, verbatim quote, verification date, `Detect` and `Fix`. The only place rule content
+  lives; every mode cites IDs into it rather than restating it. Loaded in AUDIT.
 - `references/spec-facts.md` — the mechanics the rules refer to: lifecycle ordering and re-run
   gating, prebuilds, Feature resolution and pinning, image metadata merge rules, Codespaces
-  divergences, performance, docker-in-docker shapes, substitutions, the open `customizations`
-  namespace, and the CLI surface. Loaded in AUTHOR and DEBUG.
+  divergences, performance, docker-in-docker, substitutions, the open `customizations`
+  namespace, the CLI surface. Loaded in AUTHOR and DEBUG.
 
 Each mode says what to do when a file it needs is missing — AUDIT stops, AUTHOR and DEBUG
 narrow. In all three: say it was unavailable, and never reconstruct its contents from memory
 and present the result as cited.
+
+**Editing note.** Moving content into a reference file the mode *already loads* is free; moving
+it into one the mode *does not load* is a correctness change wearing a budget change's clothes.
+The twelve-item not-label-storable list under "My changes aren't taking effect" is therefore
+**not movable** — AUDIT's bucket table depends on it, and AUDIT does not load `spec-facts.md`.
 
 **Out of scope: authoring Dev Container Templates.** No rule covers writing or publishing one;
 the entry points are the `devcontainer templates` subcommands and
