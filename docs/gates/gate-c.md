@@ -151,7 +151,9 @@ or configure MCP servers for context-aware, tailored reviews.
 
 ## SELECTION vs EXECUTION
 
-- **SELECTION: PASS, with a named residual on the channel.** The literal string
+- **SELECTION axis — REACH: PASS. MECHANISM: UNRESOLVED.** (The axis keeps its original name;
+  the verdict does not claim selection. What was observed is reach plus directive compliance, which
+  is neutral between agent-skill selection and ordinary repo-context ingestion.) The literal string
   `EXEC UNAVAILABLE` appears in the review body, embedded in the "Pull request overview"
   section. That exact string exists nowhere in this gate's setup except inside
   `probe-exec/SKILL.md`'s own fallback instruction ("If you are unable to run commands on
@@ -166,9 +168,11 @@ or configure MCP servers for context-aware, tailored reviews.
   whether loading is pinned to a skill named `code-review` at the path the review's own
   footer advertises. The follow-up probe in `gate-c-selection.md` closes the second
   question and narrows the first:
-  - An **arbitrarily-named** skill (`quokka-audit`) committed as repo state, never part of
-    a PR diff, had its instruction obeyed and its marker `MARKER-QUOKKA-8801` emitted in
-    the review. Loading is **not** pinned to the `code-review` name or path.
+  - A directive in an **arbitrarily-named** `SKILL.md` (`quokka-audit`), committed as repo
+    state and never part of a PR diff, reached the reviewer and was followed — marker
+    `MARKER-QUOKKA-8801` emitted. Whatever the mechanism is, it is **not** pinned to the
+    `code-review` name or path. That hypothesis is dead; the mechanism itself is not
+    established.
   - A **control arm** adds a baseline, not a discriminator: `CONTROL-NO-SKILL-8803` was
     literally in a reviewed diff and did not appear in that review, so marker-shaped
     strings do not appear in this reviewer's output as a matter of course. It is
@@ -214,8 +218,8 @@ verdict, and its appearance here is fully expected (this probe repo had no
 `code-review`-named skill). Under (b) it would read as "no skill was loaded", which would
 put this gate's SELECTION back in doubt. The follow-up cannot exclude (b), so it is
 recorded as the one live branch under which SELECTION here would fail. The independent Q1
-result above — an arbitrarily-named skill demonstrably loaded and obeyed — is what carries
-the weight, not the footer.
+result above — an arbitrarily-named `SKILL.md`'s directive demonstrably reaching the
+reviewer and being followed — is what carries the weight, not the footer.
 
 ## How long this took
 
@@ -227,8 +231,10 @@ to post" — in this run it did not need anywhere near that.
 
 ## CONSEQUENCE
 
-**Gate C: SELECTION PASS, EXECUTION FAIL.** GitHub Copilot code review does find and read
-a project skill under `.github/skills/`, but it does not (at least not under an
+**Gate C: on the SELECTION axis, REACH PASS / MECHANISM UNRESOLVED; EXECUTION FAIL.**
+GitHub Copilot code review does read a project `SKILL.md` under `.github/skills/` and follow
+directives written in it — whether that is agent-skill selection or ordinary repo-context
+ingestion is not established — but it does not (at least not under an
 unassisted `.github/skills/`-only SKILL.md, with no MCP server or explicit "agent skills"
 runtime configured) execute shell commands the skill instructs it to run. It behaved
 exactly as directed by the skill's own written fallback, which is the SKILL.md author's

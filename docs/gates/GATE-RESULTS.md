@@ -63,7 +63,16 @@ relying on this if the Skills API path becomes a shipping target.
 OPEN QUESTION for Task 12 (not blocking Phase 1): our `SKILL.md` ships its own `metadata:` block
 holding `corpus_version`. `gh skill install` writes its own `metadata:` block. Whether it MERGES
 into or CLOBBERS an existing one was not tested — the Gate A probe skill had no `metadata:` key.
-If Phase 2's checker header must match `corpus_version` from an installed copy, test this first.
+
+TRIPWIRE on that deferral. It does not block Phase 1, but it **does** block two specific things,
+and neither may ship ahead of it:
+1. **Any installer guidance that promises `metadata:` is preserved through `gh skill install`.**
+   We observed injection into a file that had no `metadata:` key; we did not observe what happens
+   to one that does. Do not document preservation as a property.
+2. **Any Phase 2 check that reads `corpus_version` from an INSTALLED copy.** If `gh skill install`
+   clobbers rather than merges, `corpus_version` is simply gone from the installed file and the
+   check fails or silently reads nothing. Read `corpus_version` from the source file, or close this
+   question first.
 
 ## Gate B — Copilot resolves references/ from .claude/skills/
 STATUS: RUN 2026-09-01 — **PASS** on Copilot CLI and on the Claude Code control. Detail: `gate-b.md`.
@@ -106,12 +115,13 @@ which was only ever probed from `.github/skills/` (Gates C and C-selection). Whe
 reads `.claude/skills/` is untested anywhere in this batch.
 
 ## Gate C — Copilot code review can shell out
-STATUS: RUN 2026-09-01 — **SELECTION PASS (channel residual), EXECUTION FAIL**.
+STATUS: RUN 2026-09-01 — **SELECTION axis: REACH PASS, MECHANISM UNRESOLVED. EXECUTION FAIL**.
 Detail: `gate-c.md` and `gate-c-selection.md` (SELECTION follow-up probe, 3 PRs, 2 skills, 1
 control arm).
 
 Observed on a fresh private throwaway repo, review posted **64 seconds** after the request:
-- SELECTION PASS. The review body contained the literal string `EXEC UNAVAILABLE`, which exists
+- SELECTION — REACH PASS (mechanism unresolved). The review body contained the literal string
+  `EXEC UNAVAILABLE`, which exists
   nowhere in the setup except inside the probe skill's own fallback instruction. The PR diff
   touched only `exec-canary.txt` and the review reported "Files reviewed: 1/1 changed files", so
   **the SKILL.md's content reached the reviewer from outside the diff and shaped its output.**
@@ -121,11 +131,14 @@ Observed on a fresh private throwaway repo, review posted **64 seconds** after t
   command being attempted and failing. Do not write "Copilot code review attempted execution and
   failed." It is an observed FAIL of the marker, not an absence of data.
 
-SELECTION follow-up (`gate-c-selection.md`), which settles the task review's Critical 1:
-- **An arbitrarily-named skill is loaded and obeyed.** `quokka-audit`, committed as repo state and
-  never part of any PR diff, had its instruction followed and its marker `MARKER-QUOKKA-8801`
-  emitted. Loading is **not** pinned to a skill named `code-review` at the footer's path. That
-  alternative — the one that would have voided the SELECTION reading — is refuted.
+SELECTION follow-up (`gate-c-selection.md`) — it kills Critical 1's *named* alternative and
+narrows the rest; it does not close the mechanism question:
+- **An out-of-diff directive in an arbitrarily-named `SKILL.md` reached the reviewer and was
+  followed.** `quokka-audit`, committed as repo state and never part of any PR diff, had its
+  instruction followed and its marker `MARKER-QUOKKA-8801` emitted. Whatever the mechanism, it is
+  **not** pinned to a skill named `code-review` at the footer's path — Critical 1's named
+  alternative is refuted. The mechanism itself (agent-skill selection vs repo-context ingestion)
+  is **not** established; see RESIDUAL — CHANNEL.
 - **Control arm — a baseline, and confounded.** `CONTROL-NO-SKILL-8803` was literally inside a file
   in a reviewed diff and did **not** appear in that review, so marker-shaped strings do not appear
   in this reviewer's output as a matter of course. It does **not** discriminate agent-skill
@@ -216,13 +229,14 @@ Settled by Gates A-C, carried forward — each bullet claims only what was obser
   SARIF-via-Actions as the only route we have evidence for** — not as the only route that could
   exist, which is exactly what Gate C's own CAVEAT ON GENERALITY disclaims (MCP servers untested,
   review effort "Lite", one repo, one account).
-- **The code-review surface does load an arbitrarily-named skill from `.github/skills/`**
-  (`gate-c-selection.md`, observed: an out-of-diff `quokka-audit` SKILL.md's instruction obeyed).
-  One observation per arm, review effort "Lite" throughout. Two things ride with it: whether that
-  is skill *selection* or repo-context reading is unresolved — the probe's control arm is
-  confounded and does not settle it — and **everything was observed from `.github/skills/`, never
-  from `.claude/skills/` — which is where this project ships its skill.** Do not assume code review
-  sees a `.claude/skills/` skill.
+- **Copilot code review obeyed an out-of-diff directive in an arbitrarily named
+  `.github/skills/.../SKILL.md`; whether this was agent-skill selection is unresolved.**
+  (`gate-c-selection.md`, observed: `quokka-audit`'s instruction followed and its marker emitted,
+  with that SKILL.md in no PR diff.) One observation per arm, review effort "Lite" throughout. The
+  control arm is confounded and does not settle the mechanism. **Everything was observed from
+  `.github/skills/`, never from `.claude/skills/` — which is where this project ships its skill.**
+  Do not assume code review sees a `.claude/skills/` skill, and do not design on description-based
+  selection working here.
 
 ## CLEANUP — COMPLETE
 All throwaway probe repos have been deleted. The `gh` token originally lacked the `delete_repo`

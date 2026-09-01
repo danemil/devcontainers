@@ -1,2 +1,6 @@
 # Added by code-review-graph
 .code-review-graph/
+
+# Gate D corpus: reproducible from docs/gates/gate-d.md, not committed
+docs/gates/fp-corpus/
+docs/gates/.harvest/

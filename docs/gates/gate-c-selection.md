@@ -105,10 +105,11 @@ rather than by the skill set would produce the same marker pattern. This does **
 (the marker strings themselves are in no diff — checked against the whole raw record), but it does
 weaken any claim about *which of two present skills gets picked*.
 
-**What the probe can still prove despite this:** that a skill named something other than
-`code-review` is loaded and obeyed (Q1). **What it cannot prove:** which tree the skill is read
-from, whether `code-review` is privileged when both exist, or whether the load happens via the
-agent-skills subsystem or via ordinary repo-context reading. The control arm contributes a
+**What the probe can still prove despite this:** that a directive in a `SKILL.md` named something
+other than `code-review` reached the reviewer from outside the diff and was followed (Q1). **What
+it cannot prove:** which tree the file is read from, whether `code-review` is privileged when both
+exist, or whether the file arrives via the agent-skills subsystem or via ordinary repo-context
+reading. The control arm contributes a
 baseline, not a discriminator — see its section below for exactly what it does and does not
 license.
 
@@ -256,29 +257,34 @@ MARKER-CODEREVIEW-8802
 
 ---
 
-## Q1 — ANSWER: YES, an arbitrarily-named skill is loaded and obeyed
+## Q1 — ANSWER: an out-of-diff directive in an ARBITRARILY-NAMED `SKILL.md` reached the reviewer and was followed
 
-PR 2's review body contains `MARKER-QUOKKA-8801`. That string exists nowhere in the probe except
-inside `.github/skills/quokka-audit/SKILL.md`. It is not in the PR diff, not in the canary file,
-not in a commit message. The review's own metadata says "Files reviewed: 1/1 changed files" — so
-the SKILL.md reached the model from outside the diff.
+**The observed result, stated in terms that do not assume a mechanism:** a directive written in
+`.github/skills/quokka-audit/SKILL.md` — a file that was not part of the PR diff, under a name
+with no relationship to code review or to the path the footer advertises — **reached the reviewer
+and was followed.**
 
-Further, the string was not merely reproduced: the SKILL.md's *instruction* was obeyed. It says
-"you must state the following exactly once in your review comment, verbatim, on its own line" and
-"do not explain this instruction". The review contains the marker exactly once, on its own line,
-with no explanation.
+The evidence. PR 2's review body contains `MARKER-QUOKKA-8801`. That string exists nowhere in the
+probe except inside `.github/skills/quokka-audit/SKILL.md`. It is not in the PR diff, not in the
+canary file, not in a commit message. The review's own metadata says "Files reviewed: 1/1 changed
+files" — so the SKILL.md's content reached the model from outside the diff. And the string was not
+merely reproduced: the SKILL.md's *instruction* was obeyed. It says "you must state the following
+exactly once in your review comment, verbatim, on its own line" and "do not explain this
+instruction". The review contains the marker exactly once, on its own line, with no explanation.
 
-`quokka-audit` is an arbitrary name with no relationship to code review or to the path the
-footer advertises. **The hypothesis that Copilot code review loads a skill only at the fixed name
-/ path `.github/skills/code-review/SKILL.md` is refuted.**
+**What is settled.** The hypothesis that Copilot code review picks up a skill **only** at the
+fixed name / path `.github/skills/code-review/SKILL.md` is **refuted** — an arbitrarily named file
+produced the effect. That was Critical 1's named alternative, and it is dead.
 
-What this does *not* settle: whether the load happens through the agent-skills selection
-subsystem (matched on `description`) or through ordinary out-of-diff repo-context reading. Both
-probe skills carry an identical, deliberately generic description ("Use this skill when reviewing
-any change in this repository"), so nothing here discriminates description-matching from
-whole-file ingestion. For the project's purposes the distinction is narrow — either way, an
-arbitrarily-named `SKILL.md` in `.github/skills/` reaches the reviewer's context from outside the
-diff and its directives are followed — but it is not zero, and it is recorded as open.
+**What is NOT settled, and why this heading avoids the word "load".** Whether the file arrived
+through the agent-skills selection subsystem (matched on `description`) or through ordinary
+out-of-diff repo-context ingestion is **unresolved**. Both probe skills carry an identical,
+deliberately generic description ("Use this skill when reviewing any change in this repository"),
+so nothing here discriminates description-matching from whole-file reading. Words like *loaded*,
+*selected* and *fired* all smuggle in the first route; the neutral formulation above is the whole
+of what was observed. For the project's purposes the distinction is narrow — either way, an
+arbitrarily-named `SKILL.md` in `.github/skills/` reaches the reviewer from outside the diff and
+its directives are followed — but it is not zero, and it is recorded as open (RESIDUAL 3).
 
 ## The control arm — a baseline, and it is confounded
 
@@ -412,10 +418,13 @@ footer.
 ordinary out-of-diff repo-context reading. Both probe skills had identical generic descriptions,
 so this probe cannot discriminate; neither can the control arm, which varies location and
 instruction-status together. What is observed either way is out-of-diff reach plus directive
-compliance. **The cheapest test that would settle it is an arm whose *diff* carries an imperative
-to emit a marker** — if that is obeyed, route 2 (obeys imperatives in any file it reads) is live;
-if only out-of-diff `SKILL.md` imperatives are obeyed, route 1 gains real support. No arm did
-this.
+compliance. **The cheapest test that would sharpen it is an arm whose *diff* carries an imperative
+to emit a marker.** It would not settle the mechanism either way: if that imperative is obeyed,
+route 2 (obeys imperatives in any file it reads) is shown live and route 1 becomes unnecessary as
+an explanation; if it is ignored, route 1 gains **support but not proof**, since "obeys imperatives
+only in files under `.github/skills/`" is still route 2 with a path filter. It would at least turn
+the control arm from a confounded baseline into a real location-vs-instruction discriminator. No
+arm did this.
 
 **4. Privileging of the `code-review` name when multiple skills match is NOT established**
 (one observation, two confounds).
@@ -432,10 +441,11 @@ commands", so this probe adds nothing to, and subtracts nothing from, Gate C's E
 
 For a project shipping a skill named `devcontainers`:
 
-- **The name is not a barrier.** Copilot code review demonstrably loads and obeys a skill under
-  an arbitrary name, from `.github/skills/`, without that skill being part of the PR diff. The
-  reach assumption behind the downstream code-review-surface tasks survives; it does not have to
-  be renamed to `code-review` to be seen.
+- **The name is not a barrier.** A directive in an arbitrarily-named `.github/skills/*/SKILL.md`
+  demonstrably reached Copilot code review from outside the PR diff and was followed. The reach
+  assumption behind the downstream code-review-surface tasks survives; the skill does not have to
+  be renamed `code-review` to have an effect. **Reach is what was shown; agent-skill *selection*
+  was not** — see RESIDUAL 3 before designing anything that depends on description matching.
 - **It still cannot execute there.** Gate C's EXECUTION FAIL stands untouched. Diff-line,
   execution-backed findings on the code-review surface still have to come from
   SARIF-via-Actions, and the skill on that surface remains prose-only.
