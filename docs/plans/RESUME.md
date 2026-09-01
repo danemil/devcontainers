@@ -1,7 +1,8 @@
 # RESUME — dev container agent package
 
-**Written:** 2026-09-01, after execution. **Status:** Phase 1 SHIPPED and merged to `main`.
-Supersedes the pre-execution handoff of the same name.
+**Written:** 2026-09-01, after execution. **Status:** Phase 1 SHIPPED, merged to `main`, and
+**the repository is PUBLIC** — https://github.com/danemil/devcontainers. Corpus `0.3.0`,
+package `0.1.0`. Supersedes the pre-execution handoff of the same name.
 
 ## What happened
 
@@ -43,20 +44,51 @@ the base model plus a shell already scores 8/10, because it builds real containe
 real CLI to check itself. This package earns its keep precisely where the agent *cannot execute*.
 That reframes the upstream PR from "wider reach" to "the surface where this helps".
 
-## Outstanding — two debts, both gating the upstream PR, neither gating anything else
+## Both recorded debts are now CLOSED — one of them negatively
 
-1. **A full ten-task Gate E re-run at corpus `0.3.0`.** The last *full* run was against `0.1.0`;
-   round 2 covered five tasks at `0.2.0`; `0.3.0` is unevaluated. Recorded in `README.md`
-   under "Outstanding evaluation debt".
-2. **Re-run the six `VERIFICATION.md` prompts against the current `SKILL.md`.** A live run
-   short-circuited AUDIT's availability conjunct; the fix was prose, and its own author wrote
-   "What I can't claim: that this changes Copilot's behaviour." If it still short-circuits, the
-   next lever is mechanical, not more prose.
+**Gate E round 3 ran in full at corpus `0.3.0`** and the package **HOLDS**: 48 runs of 48
+attempted, contamination 0/48, twelve tasks x two surfaces x two arms. Lift 4 of 12 — 3.3 of 10
+normalised, all attributable — with **harm 0**, and false positives among emitted finding lines
+down to 1 of 18 from 25% at `0.1.0`. It was the **first evaluation of the package as it actually
+ships**: rounds 1 and 2 both ran with `spec-facts.md` absent, and no degradation clause fired in
+round 3.
 
-Four upstream submission decisions are open and listed in `README.md`'s `upstream/` section —
-chiefly whether the Claude Code rule belongs in GitHub's own catalogue, and whether to mark the
-PR title as agent-authored. **Their index is machine-generated; never hand-edit it, and target
-`main`, not `staged`.**
+**The second debt closed with a NO, and this is the live finding.** AUDIT's availability conjunct
+**still short-circuits on Copilot**. Across 15 AUDIT runs: `claude` performed the procedural step
+9/9 and filed nothing unread as clean; **`copilot` 0/6, filing 4 of 6 rules into "checked, no
+finding" whose inputs it had never read.** The matched pair on T08b isolates the surface as the
+variable — same fixture, same corpus, same prompt. That fix was prose, and its author wrote at the
+time that he could not claim it would change Copilot's behaviour. It did not.
+**Treat a Copilot AUDIT's "checked, no finding" bucket as unreliable, and note the next lever is
+mechanical rather than more prose.**
+
+## What is actually left
+
+1. **A mechanical lever for the Copilot bucketing short-circuit.** The only finding here that
+   prose has demonstrably failed to close, measured across 15 runs. Prior candidate, declined at
+   the time for lack of evidence and now arguably earned: a `label-sensitivity: presence|absence`
+   line per `Detect` in `rules.md`, making bucketing mechanical rather than inferential. It was
+   declined on the explicit condition "reach for it if models are observed mis-bucketing" — they
+   now have been, twice. Weigh it against pushing an audit-time reporting concern into a corpus
+   that has so far only stated what is true.
+2. **The upstream `github/awesome-copilot` PR.** Payload written at `upstream/`, **not submitted**,
+   sidecar declares the generating corpus version. Four decisions are the owner's, listed in
+   `README.md`'s `upstream/` section. Note the finding above bears on it: the payload targets the
+   Copilot surface, which is exactly where the audit bucket is unreliable.
+3. **Optional, all documented, none blocking:** Copilot's firing rate is **66.7%**, its lowest of
+   three rounds, with one miss on a probe the skill exists to answer — the number to watch.
+   Feature version pinning still has no rule. Gate D is still deferred, so Phase 2 (Tasks 12-13)
+   still does not run.
+
+## A constraint that did not exist before publication
+
+**Any future Gate E run must disable network-reachable tooling in BOTH arms, and must say which.**
+The repository is public now, so a control-arm model can reach `RESEARCH-BRIEF.md`, the cached
+sources and every gate result **over the network** — the exact contamination the scratch-repo rule
+prevents, by a path that rule never covered. Round 3 used `--disable-builtin-mcps` on copilot in
+both arms. **A control that can search the web for this repository is not a control**, and a run
+that was clean but cannot say why is not reusable evidence. "Unaided" in the quarterly cadence now
+means network-unaided.
 
 ## Things that will bite you
 
@@ -75,6 +107,9 @@ PR title as agent-authored. **Their index is machine-generated; never hand-edit 
 - **The repo is private.** The documented install paths need it public *and* merged. Merged is
   done. Publication is undecided, and the README is written so deleting one block quote is the
   whole edit if that changes.
+- **Never add a count to prose that neither a check nor its own list can verify.** A list here
+  silently went from twelve items to thirteen. "Twelve rules" is stated only because grep 2 prints
+  it and would stop before anyone reached the prose.
 - **`docker scout` IS installed here** — it is a Docker CLI plugin, so `command -v docker-scout`
   fails while `docker scout version` succeeds. See the ERRATA at the end of `docs/RESEARCH-BRIEF.md`.
 
