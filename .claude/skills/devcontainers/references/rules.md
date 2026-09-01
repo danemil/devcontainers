@@ -96,13 +96,23 @@ idempotency check. Nothing here depends on an installed binary.
 spec's merge logic, "When the order matters, the devcontainer.json is considered last." So a
 value **present** in the file wins that merge and can be relied on; a value **absent** from the
 file may still be supplied by the label, and the file alone cannot tell you that it was. Say
-what the file states, and say where the label could still change it. `DC-DEP-001` is the one
-rule whose entire input set is label-immune — top-level `extensions`, `settings`, `devPort` and
-`appPort` appear on neither of the label's two property lists. (`DC-FEAT-001` is the near miss:
-`features` and `overrideFeatureInstallOrder` are label-immune too, but the dependency
-resolution it reasons about is itself frozen onto the label on a rebuild-from-image, which is
-`DC-FEAT-002`'s subject.) Every other rule reads at least one property the label can also
-contribute.
+what the file states, and say where the label could still change it.
+
+Three rules — `DC-DEP-001`, `DC-FEAT-001` and `DC-FEAT-002` — read only properties the label
+never carries. The test is mechanical rather than a judgement: their inputs are top-level
+`extensions`, `settings`, `devPort` and `appPort` (`DC-DEP-001`); `features` and
+`overrideFeatureInstallOrder` (`DC-FEAT-001`); and the image reference plus `features`
+(`DC-FEAT-002`) — and not one of those names appears on either property list in the spec's
+image-metadata document, the one for `devcontainer.json` config or the one for Feature
+metadata. `DC-DEP-001` is the cleanest of the three, because its inputs are also the whole of
+what it reasons about. For the two `DC-FEAT` rules the immunity stops at the inputs: what they
+reason about is dependency resolution, whose *outcome* is frozen onto the label at first
+creation — which is `DC-FEAT-002`'s own subject.
+
+The other nine each read at least one property the label can contribute: the lifecycle
+commands, `waitFor`, `remoteEnv`, `containerEnv`, `mounts`, `remoteUser`, `containerUser`,
+`updateRemoteUserUID` and `userEnvProbe` are all on that list. For those nine an absence in the
+file is not evidence of an absence at runtime.
 
 **The snippets are illustrative, not runnable on sight.** Two of them invoke `devcontainer up`,
 which creates a container and consumes time and disk. Never run either without the user's

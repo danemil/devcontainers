@@ -33,8 +33,7 @@ Discovery precedence, highest first: `.devcontainer/devcontainer.json`, then
 `.devcontainer.json`, then `.devcontainer/<folder>/devcontainer.json` — that third one exactly
 one level deep, not recursive.
 
-Read the file that actually wins — a repo with two of these has one live config and one that
-looks live, and several "my change did nothing" reports are exactly that.
+Read the file that actually wins: a repo with two has one live config and one that looks live.
 
 `devcontainer.json` is JSONC — comments and trailing commas are legal, and a strict JSON
 parser reports a syntax error on a valid file. Check for `//` and `/* */` before calling one
@@ -113,7 +112,7 @@ These hold in every mode.
 
 On refusal 3: the failure mode is a reader skimming a report, seeing no complaint about image
 vulnerabilities, and concluding the image is clean. Never write a summary line — "no security
-issues", "looks good" — covering an area you did not check.
+issues", "looks good", "all clear" — covering an area you did not check.
 
 ---
 
@@ -185,20 +184,20 @@ entitled to call clean, then everything left. Row 2 has two conjuncts and needs 
 whose inputs you never read is not clean, however label-immune its properties are.
 
 Why the two middle rows differ. For every property these twelve rules read, `devcontainer.json`
-"is considered last" when the order matters (`image-metadata.md`), so a value present in the
-file wins — but the label can still **add** what the file never showed: lifecycle commands and
+"is considered last" when the order matters (`image-metadata.md`), so a value present in the file
+wins — but the label can still **add** what the file never showed: lifecycle commands and
 `mounts` are collected lists, `remoteEnv` / `containerEnv` merge per variable. (A claim about
-these rules' properties, not a law of the merge system; a few merge the other way.) Hence:
-**an audit can soundly report what it found, not that it is clean.**
+these rules' properties, not a law of the merge system; a few merge the other way.) Hence: **an
+audit can soundly report what it found, not that it is clean.**
 
-Working a row needs the `Detect`, the config, and whether each property it names is
-label-storable — the twelve-item list under "My changes aren't taking effect" is the in-file
-source for that last input, and a compound `Detect` is only as sound as its weakest conjunct.
+Working a row needs the `Detect`, the config, and whether each property it names is label-storable
+— the twelve-item list under "My changes aren't taking effect" is the in-file source for that last
+input, and a compound `Detect` is only as sound as its weakest conjunct.
 
-**Not applicable** needs the `Detect`'s own scope clause — a rule limited to configs installing
-a particular tool, applied to one that does not; a Feature-authoring rule, applied to a repo
-that authors none. Name the condition. If you cannot decide, it is **not checked**: not having
-looked is not the same as having looked and found nothing.
+**Not applicable** needs the `Detect`'s own scope clause — a rule limited to configs installing a
+particular tool, applied to one that does not; a Feature-authoring rule, applied to a repo that
+authors none. Name the condition. If you cannot decide, it is **not checked**: not having looked
+is not the same as having looked and found nothing.
 
 ### The not-checked block
 
@@ -249,12 +248,11 @@ the CLI is what moves rules out of "not checked", and an empty no-finding bucket
 not a malfunction. `DC-DEP-001` is the clean case for that bucket: every property its `Detect`
 reads is label-immune **and** was readable here, so it is sound in both directions — had it not
 fired it would have been a legitimate "checked, no finding" entry. Label-immunity alone is not
-enough. `DC-FEAT-001` and `DC-FEAT-002` read only label-immune properties too and are still not
-checked, because row 2's first conjunct fails: their inputs were never read. Every placement
-follows from the scenario plus the rule's own `Detect` — re-derive rather than copy. What does
-not vary is the reconciliation: twelve, every time. Never merge the buckets, never let a
-green-sounding sentence stand in for any of them, and never resolve an unplaceable rule by
-dropping it.
+enough: `DC-FEAT-001` and `DC-FEAT-002` read only label-immune properties too and are still not
+checked, because row 2's first conjunct fails — their inputs were never read. Every placement
+follows from the scenario plus the rule's own `Detect`; re-derive rather than copy. What does not
+vary is the reconciliation: twelve, every time. Never merge the buckets, never let a
+green-sounding sentence stand in for any, and never drop an unplaceable rule from the report.
 
 ---
 
@@ -263,8 +261,8 @@ dropping it.
 Write or modify a configuration.
 
 **Load `references/spec-facts.md`.** It carries the mechanics — lifecycle ordering and re-run
-gating, prebuild behaviour, Feature resolution, image metadata merge rules, Codespaces
-divergences, substitutions, the CLI surface. Use it instead of recalling property names.
+gating, prebuilds, Feature resolution, image metadata merge rules, Codespaces divergences,
+substitutions, the CLI surface. Use it instead of recalling property names.
 
 **If it cannot be read, say so in your first sentence and continue in a narrowed mode.** You may
 still edit properties already present in the user's file and still cite rule IDs. You may not
@@ -282,8 +280,8 @@ flag exists, without a source you can point at — the spec is at
 - **Do not invent property names.** Check the schema facts in `references/spec-facts.md`, and
   when checking for unknown properties never descend into `customizations.*` — that namespace
   is intentionally open, has no registry or schema constraint, and any tool may claim a key.
-- **Prefer an image plus Features over a Dockerfile** when a maintained Feature exists; reach
-  for a Dockerfile when it does not. `[OPINION]`
+- **Prefer an image plus Features over a Dockerfile** when a maintained Feature exists, a
+  Dockerfile when none does. `[OPINION]`
 - **Pin versions.** An untagged Feature or image means `latest`, and a non-reproducible
   environment from one week to the next.
 - **Say which hook you chose and why** whenever you place a lifecycle command, and open the
@@ -295,21 +293,20 @@ flag exists, without a source you can point at — the spec is at
   `DC-DEP-001`; named volumes and workspace mounts → `DC-PERF-001`; Feature install order →
   `DC-FEAT-001`; Feature idempotence and rebuilds → `DC-FEAT-002`; writing a Feature's
   `install.sh` → `DC-FEAT-003`; Claude Code in the container → `DC-CLAUDE-001`.
-- **Label every non-spec recommendation `[OPINION]` inline**, at the point of the
-  recommendation, not in a footnote.
+- **Label every non-spec recommendation `[OPINION]` inline**, at the point of it, not in a
+  footnote.
 
 ### After writing
 
-Say plainly that the change does not take effect until the container is rebuilt, and give the
-command — but do not run it. `devcontainer up` and `docker build` need explicit confirmation
-(refusal 5) and both cost minutes and disk.
+Say plainly the change needs a rebuild to take effect, and give the command — but do not run it:
+`devcontainer up` and `docker build` need explicit confirmation (refusal 5).
 
 ```bash
 command -v devcontainer >/dev/null 2>&1 && echo "devcontainer available — ask before running:  devcontainer up --workspace-folder ."
 ```
 
 Do not claim the config is valid — nothing validated it. Say what you checked by reading, and
-that no schema validation was run (refusal 2).
+that no schema validation ran (refusal 2).
 
 ### Minimum viable config
 
@@ -377,19 +374,19 @@ lines of output resolves faster than any list here.
 7. **Registry auth or network.** A private base image or Feature with no credentials fails at
    pull, not at build.
 
-Only after the list: if the CLI is available and the user confirms, a build reproduces it
-locally — ask first (refusal 5).
+Only after the list: a local build reproduces it, if the CLI is available and the user confirms
+(refusal 5).
 
 ### "It behaves differently in Codespaces"
 
-Codespaces diverges from a local dev container in documented ways. Check these before
-assuming a bug.
+Codespaces diverges from a local dev container in documented ways — check before assuming a bug.
 
 1. **`customizations.codespaces` and `hostRequirements` are read from `devcontainer.json`
    only**, not from the image metadata label — so a value that reached your local container
    via a base image label does not apply there.
-2. **Some local-only properties are not honoured:** bind mounts other than the Docker socket,
-   the `"host:port"` form of `forwardPorts`, and `shutdownAction`.
+2. **Some local-only properties are not honoured:** bind mounts other than the Docker socket
+   (so anything depending on a host path is absent), the `"host:port"` form of `forwardPorts`,
+   and `shutdownAction`.
 3. **A prebuild changes what has already run by the time you attach.** The observable shape:
    setup work that is finished on one side is still running, or missing, on the other — "the
    environment is ready instantly locally but the prebuilt Codespace still installs
@@ -400,7 +397,7 @@ assuming a bug.
 
 ### "It's slow to start"
 
-1. **Establish which phase is slow** — image pull, build, or lifecycle commands. They have
+1. **Establish which phase is slow** — image pull, build, or lifecycle commands; they have
    different fixes and the user usually has not separated them.
 2. **The expensive step is in a hook that runs every time.** Find which hook it is in, then
    check that against what a prebuild bakes — `DC-LIFE-001`.
@@ -411,13 +408,13 @@ assuming a bug.
 4. **Windows only:** a repository under `/mnt/c` accessed from WSL2 crosses a filesystem
    boundary on every access; moving it into the WSL filesystem often beats every other change
    here. `[OPINION]` — a host-side observation, not a rule and not spec.
-5. **A second image is being built that nobody asked for.** If the build log shows a derived
+5. **A second image is being built that nobody asked for** — if the build log shows a derived
    image appearing after the main one, go to `DC-USER-001`.
 6. **Attach is waiting on a hook.** `waitFor` decides how far startup runs before the editor
    attaches. Read what it is set to, and check that the value is legal at all — the legal set
    is in `DC-LIFE-002`.
-7. **Serial work that could overlap.** If several independent setup steps are chained into
-   one string, check whether a non-string form applies — `DC-LIFE-003`.
+7. **Serial work that could overlap** — if several independent setup steps are chained into one
+   string, check whether a non-string form applies (`DC-LIFE-003`).
 8. **Feature count.** Each Feature is an install step; ask whether all are still used.
 
 ### "My changes aren't taking effect"
@@ -430,13 +427,14 @@ assuming a bug.
    `postAttachCommand` runs every attach — so a restart re-runs only the last two, and an edit
    to `postCreateCommand` does nothing until the container is **recreated**.
 3. **You edited a shadowed file.** Re-check discovery precedence.
-4. **The rebuild reused cached layers.** One that hits cache at every step changes nothing.
+4. **The rebuild reused cached layers** — one that hits cache at every step changes nothing.
 5. **You changed a Feature or its options and rebuilt from an image rather than from
    `devcontainer.json`.** Both halves of what goes wrong here — when Feature resolution is
    decided, and what happens to a Feature that is asked to install twice — are `DC-FEAT-002`.
    Open it before explaining the behaviour.
 6. **The property never travels in the image metadata label**, so changing it and rebuilding
-   from a prebuilt image does nothing. Not label-storable: `initializeCommand`, `image`,
+   from a prebuilt image does nothing. AUDIT's bucket table reads the list below and does not
+   load `spec-facts.md`, so do not move it. Not label-storable: `initializeCommand`, `image`,
    `build.*`, `dockerComposeFile`, `service`, `runServices`, `appPort`, `runArgs`,
    `workspaceMount`, `workspaceFolder`, `features`, `overrideFeatureInstallOrder`.
    **`mounts` is not on that list — it does travel, and it merges** (collected, last source
@@ -487,10 +485,12 @@ Each mode says what to do when a file it needs is missing — AUDIT stops, AUTHO
 narrow. In all three: say it was unavailable, and never reconstruct its contents from memory
 and present the result as cited.
 
-**Editing note.** Moving content into a reference file the mode *already loads* is free; moving
-it into one the mode *does not load* is a correctness change wearing a budget change's clothes.
-The twelve-item not-label-storable list under "My changes aren't taking effect" is therefore
-**not movable** — AUDIT's bucket table depends on it, and AUDIT does not load `spec-facts.md`.
+**Editing note.** Moving content into a reference file the mode *already loads* is free only if
+the mode's degradation note stays true afterwards — DEBUG promises "the symptom lists stand on
+their own", which is false once a symptom list lives in `spec-facts.md`; amend the promise in the
+same edit. Moving content into a file the mode *does not load* is a correctness change wearing a
+budget change's clothes: the twelve-item list under "My changes aren't taking effect" is
+therefore **not movable** — AUDIT's bucket table depends on it and AUDIT does not load it.
 
 **Out of scope: authoring Dev Container Templates.** No rule covers writing or publishing one;
 the entry points are the `devcontainer templates` subcommands and
