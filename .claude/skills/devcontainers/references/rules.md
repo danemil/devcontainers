@@ -62,8 +62,11 @@ Format:
 - A ` … ` inside a quote marks an elision between two passages **on the same source page** —
   usually a hyperlink target or an intervening clause. Each fragment either side of it is
   itself verbatim.
-- Quotes taken from a JSON schema are whitespace-normalised (the source is tab-indented and
-  line-broken); every token, including the escaped inner quotes, is otherwise unchanged.
+- Quotes taken from a source file rather than from prose — a JSON schema, a TypeScript option
+  table, a YAML action definition — are whitespace-normalised: leading indentation is dropped
+  and line breaks are collapsed to single spaces. Every token, including escaped inner quotes,
+  is otherwise unchanged, and a trailing separator such as a `,` closing the source line falls
+  outside the quote.
 
 ## Severities are provisional
 
@@ -81,11 +84,25 @@ that scope explicitly. Treat its ERROR severity as a hypothesis, not a finding.
 None of `devcontainer`, `hadolint`, `trivy`, `dockle` or `docker scout` can be assumed
 present. Every shell snippet below probes with `command -v` first and degrades to a message.
 
-**No rule requires running a tool.** Ten of the twelve are detectable by reading
-`devcontainer.json` alone. The two Feature-authoring rules need one more file: `DC-FEAT-003`
-is detected by reading the Feature's own `install.sh`, and `DC-FEAT-002` is half config-side
-(a rebuild-from-image, a Feature listed twice with different options) and half `install.sh`
-side (the idempotency check). Nothing here depends on an installed binary.
+**No rule requires running a tool.** Nine of the twelve read `devcontainer.json` and nothing
+else. Three read one file more: `DC-FEAT-001` needs each referenced Feature's
+`devcontainer-feature.json`, for the `dependsOn` and `installsAfter` edges; `DC-FEAT-003` reads
+the Feature's own `install.sh`; `DC-FEAT-002` reads both — the configuration for a
+rebuild-from-image or a Feature listed twice with different options, and `install.sh` for the
+idempotency check. Nothing here depends on an installed binary.
+
+**Reading the file is not the same as knowing the configuration.** At runtime
+`devcontainer.json` is merged with the image's `devcontainer.metadata` label, and per the
+spec's merge logic, "When the order matters, the devcontainer.json is considered last." So a
+value **present** in the file wins that merge and can be relied on; a value **absent** from the
+file may still be supplied by the label, and the file alone cannot tell you that it was. Say
+what the file states, and say where the label could still change it. `DC-DEP-001` is the one
+rule whose entire input set is label-immune — top-level `extensions`, `settings`, `devPort` and
+`appPort` appear on neither of the label's two property lists. (`DC-FEAT-001` is the near miss:
+`features` and `overrideFeatureInstallOrder` are label-immune too, but the dependency
+resolution it reasons about is itself frozen onto the label on a rebuild-from-image, which is
+`DC-FEAT-002`'s subject.) Every other rule reads at least one property the label can also
+contribute.
 
 **The snippets are illustrative, not runnable on sight.** Two of them invoke `devcontainer up`,
 which creates a container and consumes time and disk. Never run either without the user's
@@ -157,7 +174,7 @@ read-only. `devcontainer features resolve-dependencies` is a read-only query and
 - **Source:** https://github.com/devcontainers/spec/blob/main/docs/specs/feature-dependencies.md
 - **Quote:** "For subsequent creations from an image (or resumes of a dev container), the dependency tree is **not** re-calculated. … Since two Features with different options are considered different, a single Feature may be installed more than once.  Features should be idempotent."
 - **Verified:** 2026-09-01
-- **Detect:** Two symptoms. (1) A config that starts `FROM` a previously built dev container image and expects a Feature version bump or a changed `dependsOn` to take effect: it will not, because the resolved set is frozen into the `devcontainer.metadata` label at first creation. (2) The same Feature referenced twice with different options — directly in `features`, or once directly and once pulled in by another Feature's `dependsOn` — which installs it twice. If you author Features, read `install.sh` for non-idempotent steps: appending to `PATH`, `~/.bashrc` or `/etc/profile.d` without a guard, `useradd` without checking, unconditional `git clone`.
+- **Detect:** Two symptoms. (1) A config that starts `FROM` a previously built dev container image and expects a Feature version bump or a changed `dependsOn` to take effect: it will not, because the resolved Feature set — the *outcome* of dependency resolution, not the `features` property itself, which is never stored on the label — is frozen onto the `devcontainer.metadata` label at first creation. (2) The same Feature referenced twice with different options — directly in `features`, or once directly and once pulled in by another Feature's `dependsOn` — which installs it twice. If you author Features, read `install.sh` for non-idempotent steps: appending to `PATH`, `~/.bashrc` or `/etc/profile.d` without a guard, `useradd` without checking, unconditional `git clone`.
 - **Fix:** To pick up changed dependencies, recreate from `devcontainer.json` rather than rebuilding from the image — the source states the user must delete the image or dev container and recreate it. In an authored Feature, make every step re-runnable: guard appends with a marker grep, use `install -D`, prefer `useradd ... || true` style checks over bare creation, and make downloads overwrite rather than append.
 
 ### DC-FEAT-003 · A Feature's `install.sh` runs as root at image-build time; `_REMOTE_USER`, `_CONTAINER_USER`, `_REMOTE_USER_HOME` and `_CONTAINER_USER_HOME` are the sanctioned way to learn the eventual user, and ignoring them is a common cause of root-owned files.

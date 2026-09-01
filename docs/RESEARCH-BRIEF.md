@@ -234,7 +234,7 @@ Other surfaces:
   (last substantive commits Aug 2025; 2026 commits are website housekeeping).
 - Dockerfile-side tooling (hadolint, dockle, trivy, docker scout) is mature but NONE understands
   devcontainer.json. trivy's misconfig scanner does not list devcontainer.json.
-- NONE of hadolint/trivy/dockle/docker scout/devcontainer CLI is installed on this machine ->
+- (superseded in part; see ERRATA) NONE of hadolint/trivy/dockle/docker scout/devcontainer CLI is installed on this machine ->
   anything that shells out MUST probe and degrade gracefully.
 - **AGENTS.md**: real, 60,000+ repos, but deliberately schema-free plain Markdown. No machine-readable
   fields, no skill format. Cannot itself carry an audit rule set.
@@ -276,9 +276,17 @@ Consequences:
   subcommand is the correct form, and probing `command -v docker-scout` would produce a false
   "not installed" on this very machine.
 - Four of five tools are genuinely absent, so the degrade-gracefully requirement stands unchanged.
-- **Any task that runs a live audit on this machine will emit one fewer "not checked" line than
-  the worked examples show.** A Gate D, Task 9 or Task 10 run that assumes zero scanners is wrong
-  here. Do not treat a `docker scout` result appearing in a live run as a bug.
+- The consequence for a live audit is CONDITIONAL, and the first version of this erratum
+  overstated it. There is no `docker scout` line in the skill's worked not-checked block to drop
+  — image vulnerabilities are attributed there to `trivy not available` — and availability is not
+  execution: the skill moves a line out of that block only when a tool was available AND actually
+  ran. `docker scout` needs an image to scan, and AUDIT is read-only and does not pull. So the
+  likely live-audit output on this machine keeps all seven lines and changes one REASON, e.g.
+  "image vulnerabilities — trivy not available; docker scout available but the image was not
+  pulled". Only if an image is present to scan and `docker scout` actually runs does the
+  image-vulnerabilities line move out of the block.
+- The operative warning stands: a Gate D, Task 9 or Task 10 run that assumes zero available
+  scanners is wrong here, and a `docker scout` result appearing in a live run is not a bug.
 
 The original §5 text is left in place rather than rewritten: it is dated, adversarially
 fact-checked research, and silently editing it would destroy the provenance that makes the rest of

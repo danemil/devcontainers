@@ -35,8 +35,8 @@ Discovery precedence, highest first:
 2. `.devcontainer.json`
 3. `.devcontainer/<folder>/devcontainer.json` — exactly one level deep, not recursive
 
-Read the file that actually wins. A repo with two of these has one live config and one that
-looks live; several "my change did nothing" reports are this.
+Read the file that actually wins — a repo with two of these has one live config and one that
+looks live, and several "my change did nothing" reports are exactly that.
 
 `devcontainer.json` is JSONC — comments and trailing commas are legal, and a strict JSON
 parser reports a syntax error on a valid file. Check for `//` and `/* */` before calling one
@@ -178,28 +178,30 @@ Each of the twelve rules ends up in exactly one of four places, and the buckets 
 — reconcile before you emit. A rule silently missing from the report is the same failure as
 "not checked" reading as "passed".
 
-| Bucket | Meaning |
+| Bucket | Use it only when |
 | --- | --- |
-| **finding** | evaluated, and it fired |
-| **checked, no finding** | evaluated against this config, did not fire |
-| **not checked** | not evaluated — an input the rule's `Detect` needs was unavailable |
+| **finding** | the firing input is present in the file and wins the merge — what you found, you found |
+| **checked, no finding** | *every* property the `Detect` reads is label-immune, or present in the file and winning |
+| **not checked** | anything else — an input was unavailable, or the label could still supply what fires the rule |
 | **not applicable** | the rule's own `Detect` scopes it out of this config |
 
-A rule goes in **not checked**, never in "checked, no finding", whenever `Detect` needed
-something you did not have: the resolved Feature install order when the CLI is absent, a
-Feature's `install.sh` when the Feature is not vendored, or — the case that catches people —
-a `Detect` that turns on something being **absent** from the config, when the image metadata
-label was not read. An absence on disk can be filled in by the label; a presence cannot be
-taken away by it. So a rule that fires on what *is* in the file stays checkable from the
-file; one that fires on what is *missing* does not, until the label is read. Not having
-looked is not the same as having looked and found nothing. (This does not contradict the
-corpus's note that most rules are readable from `devcontainer.json` alone — that is about
-which *file* a rule reads, this is about whether the on-disk file is the whole config.)
+Why the two middle rows differ. For every property these twelve rules read,
+`devcontainer.json` "is considered last" when the order matters (`image-metadata.md`), so a
+value present in the file wins — but the label can still **add** what the file never showed:
+lifecycle commands and `mounts` are collected lists, `remoteEnv` / `containerEnv` merge per
+variable. (A claim about these rules' properties, not a law of the merge system; a few merge
+the other way.) Hence: **an audit can soundly report what it found, not that it is clean.**
+
+Working a row needs the `Detect`, the config, and whether each property it names is
+label-storable — the twelve-item list under "My changes aren't taking effect" is the in-file
+source for that last input, and a compound `Detect` is only as sound as its weakest conjunct.
+The on-disk file is not necessarily the whole config, whatever the corpus says about *files*.
 
 A rule goes in **not applicable** only when its own `Detect` scopes it out — a rule limited to
 configs installing a particular tool, applied to one that does not; a Feature-authoring rule,
 applied to a repo that authors none. Name the condition. If you cannot decide which bucket a
-rule belongs in, it is **not checked**.
+rule belongs in, it is **not checked**. Not having looked is not the same as having looked and
+found nothing.
 
 ### The not-checked block
 
@@ -215,8 +217,8 @@ not checked   resolved Feature order      devcontainer CLI not available
 not checked   base image metadata         image not pulled
 ```
 
-Adjust each line to what the probe actually found. If a tool was available and did run, move
-it out of this block and report its result instead.
+Adjust each line to what the probe found. If a tool was available **and did run**, move it out
+of this block and report its result instead.
 
 ### The tally
 
@@ -227,15 +229,16 @@ prebuilds:
 
 ```
 findings:             2   DC-SEC-001, DC-DEP-001
-checked, no finding:  2   DC-LIFE-002, DC-LIFE-003   each fires on a value present in the
-                          file, which the label cannot take away
-not checked:          6   DC-FEAT-001  install order not resolved — devcontainer CLI not available
+checked, no finding:  0   nothing qualifies: with the image unpulled, for every rule that did
+                          not fire, the label could still supply what fires it
+not checked:          8   DC-FEAT-001  install order not resolved — devcontainer CLI not available
                           DC-FEAT-002  Feature contents not vendored in this workspace
-                          DC-PERF-001  mounts can also arrive via the label — image not pulled
-                          DC-LIFE-001  Detect turns on hooks being absent, and prebuild use
-                                       is not established for this repo
-                          DC-USER-001  Detect turns on a property being absent — label not read
-                          DC-ENV-001   same shape — the probe setting may arrive via the label
+                          DC-PERF-001  turns partly on a chown being absent — label not read
+                          DC-LIFE-001  hooks-absent input, and prebuild use not established
+                          DC-LIFE-002  waitFor not established as set in the file
+                          DC-LIFE-003  lifecycle commands merge as a collected list
+                          DC-USER-001  turns on a property being absent — label not read
+                          DC-ENV-001   the probe setting may arrive via the label
 not applicable:       2   DC-FEAT-003  this repo authors no Features
                           DC-CLAUDE-001  config does not install or run Claude Code
                           -----
@@ -244,12 +247,14 @@ not applicable:       2   DC-FEAT-003  this repo authors no Features
 plus the non-rule areas in the not-checked block above.
 ```
 
-That is a thin audit, and it is the honest one for those inputs — pulling the image or
-running the CLI is what moves rules out of "not checked". Every placement above follows from
-the scenario plus the rule's own `Detect`; re-derive them for the config in front of you
-rather than copying this shape. What does not vary is the reconciliation: twelve, every time.
-Never merge the buckets, never let a green-sounding sentence stand in for any of them, and
-never resolve an unplaceable rule by dropping it from the report.
+That is a thin audit and it is the honest one for those inputs — pulling the image or running
+the CLI is what moves rules out of "not checked", and an empty no-finding bucket is a result,
+not a malfunction. `DC-DEP-001` is the one rule of the twelve whose whole input set is
+label-immune, so it is sound in both directions: had it not fired, it would have been the one
+legitimate "checked, no finding" entry here. Every placement follows from the scenario plus
+the rule's own `Detect` — re-derive them rather than copying this shape. What does not vary is
+the reconciliation: twelve, every time. Never merge the buckets, never let a green-sounding
+sentence stand in for any of them, and never resolve an unplaceable rule by dropping it.
 
 ---
 
@@ -276,10 +281,9 @@ present the result as cited.
 - **Change only what was asked.** Do not reorder keys, reformat, strip comments, or "tidy"
   the rest of the file (refusal 6). If you think something else is wrong, say so; do not fix
   it unasked.
-- **Do not invent property names.** Check the schema facts in `references/spec-facts.md`.
-  When checking for unknown properties, never descend into `customizations.*` — that
-  namespace is intentionally open, has no registry and no schema constraint, and any tool may
-  claim a subproperty there.
+- **Do not invent property names.** Check the schema facts in `references/spec-facts.md`, and
+  when checking for unknown properties never descend into `customizations.*` — that namespace
+  is intentionally open, has no registry or schema constraint, and any tool may claim a key.
 - **Prefer an image plus Features over a Dockerfile** when a maintained Feature exists; reach
   for a Dockerfile when it does not. `[OPINION]`
 - **Pin versions.** An untagged Feature or image reference means `latest` and makes the
@@ -325,9 +329,9 @@ Start here and add only what the user needs:
 }
 ```
 
-Every further property should answer a question the user actually asked. A config that
-carries `runArgs`, `mounts`, `postAttachCommand` and a Dockerfile because it was copied from
-somewhere is harder to debug than one that does not.
+Every further property should answer a question the user actually asked; a config carrying
+`runArgs`, `mounts`, `postAttachCommand` and a Dockerfile because it was copied from somewhere
+is harder to debug than one that does not.
 
 This starting point sets `remoteUser` and leaves `updateRemoteUserUID` unset, which is a
 condition `DC-USER-001` detects — deliberate, but it means the starting point is not
@@ -362,21 +366,20 @@ lines of output resolves faster than any list here.
 
 1. **Read the first error, not the last.** Build output ends with a generic failure line; the
    real cause is usually several screens above it.
-2. **Architecture mismatch.** An arm64 host pulling an amd64-only image or Feature. Check for
-   an explicit `--platform` or `build.options`, and check whether the Feature publishes an
-   arm64 variant. `[OPINION]` — a host-side observation, not a rule and not spec.
+2. **Architecture mismatch.** An arm64 host pulling an amd64-only image or Feature. Check
+   `--platform` / `build.options`, and whether the Feature publishes an arm64 variant.
+   `[OPINION]` — a host-side observation, not a rule and not spec.
 3. **A Feature's `install.sh` failed.** Identify which one from the output. It runs as root
    at build time; a script that assumes the final user's home directory or PATH breaks here.
    See `DC-FEAT-003`.
 4. **An unpinned reference moved.** A base image or Feature on `latest` built last month and
-   does not build today. See what is pinned and what is not.
-5. **`initializeCommand` failed.** It runs on the **host**, before any container exists. A
-   missing host tool there surfaces as a build failure that has nothing to do with the image.
-6. **Deprecated build properties.** Top-level `dockerFile` and `context` are deprecated in
-   favour of `build.dockerfile` / `build.context`; mixing them produces confusing path
-   resolution. See `DC-DEP-001`.
-7. **Registry auth or network.** A private base image or a private Feature with no
-   credentials fails at pull, not at build.
+   does not today. See what is pinned and what is not.
+5. **`initializeCommand` failed.** It runs on the **host**, before any container exists, so a
+   missing host tool there surfaces as a build failure unrelated to the image.
+6. **Deprecated build properties.** Top-level `dockerFile` and `context` are deprecated for
+   `build.dockerfile` / `build.context`; mixing them confuses path resolution. `DC-DEP-001`.
+7. **Registry auth or network.** A private base image or Feature with no credentials fails at
+   pull, not at build.
 
 Only after the list: if the CLI is available and the user confirms, a build reproduces it
 locally. Ask first (refusal 5).
@@ -387,8 +390,8 @@ Codespaces diverges from a local dev container in documented ways. Check these b
 assuming a bug.
 
 1. **`customizations.codespaces` and `hostRequirements` are read from `devcontainer.json`
-   only** — not from the image metadata label. A value that reached your local container via
-   a base image label simply does not apply there.
+   only**, not from the image metadata label — so a value that reached your local container
+   via a base image label does not apply there.
 2. **Some local-only properties are simply not honoured:** bind mounts other than the Docker
    socket, the `"host:port"` form of `forwardPorts`, and `shutdownAction`.
 3. **A prebuild changes what has already run by the time you attach.** The observable shape:
@@ -401,8 +404,8 @@ assuming a bug.
 
 ### "It's slow to start"
 
-1. **Establish which phase is slow** — image pull, image build, or lifecycle commands. They
-   have completely different fixes and the user usually has not separated them.
+1. **Establish which phase is slow** — image pull, build, or lifecycle commands. They have
+   different fixes and the user usually has not separated them.
 2. **The expensive step is in a hook that runs every time.** Find which hook it is in, then
    check that against what a prebuild bakes — `DC-LIFE-001`.
 3. **Bind-mount I/O penalty** on macOS and Windows, for directories with many small files
@@ -420,7 +423,7 @@ assuming a bug.
    is in `DC-LIFE-002`.
 7. **Serial work that could overlap.** If several independent setup steps are chained into
    one string, check whether a non-string form applies — `DC-LIFE-003`.
-8. **Feature count.** Each Feature is an install step. Ask whether all of them are still used.
+8. **Feature count.** Each Feature is an install step; ask whether all are still used.
 
 ### "My changes aren't taking effect"
 
@@ -432,8 +435,7 @@ assuming a bug.
    `postAttachCommand` runs every attach — so a restart re-runs only the last two, and an edit
    to `postCreateCommand` does nothing until the container is **recreated**.
 3. **You edited a shadowed file.** Re-check discovery precedence.
-4. **The rebuild reused cached layers.** A rebuild that hits cache for every step changes
-   nothing observable.
+4. **The rebuild reused cached layers.** One that hits cache at every step changes nothing.
 5. **You changed a Feature or its options and rebuilt from an image rather than from
    `devcontainer.json`.** Both halves of what goes wrong here — when Feature resolution is
    decided, and what happens to a Feature that is asked to install twice — are `DC-FEAT-002`.
@@ -463,18 +465,16 @@ This is `DC-ENV-001` far more often than anything else. Start there.
 4. **`containerEnv` and `remoteEnv` are not interchangeable.** `containerEnv` is set on the
    container and visible to everything in it; `remoteEnv` applies to the remote user's
    sessions and lifecycle commands. Anything the entrypoint needs must be in `containerEnv`.
-5. **Root at build time, remote user afterwards.** Build-time installation runs as root;
-   lifecycle commands run as the remote user. A tool installed into root's home is not on the
-   remote user's PATH, and files it created may be root-owned. Check where the tool actually
-   landed. If a Feature put it there, `DC-FEAT-003` is how a Feature is supposed to know
-   which user it is installing for.
+5. **Root at build time, remote user afterwards.** Build-time installation runs as root,
+   lifecycle commands as the remote user, so a tool installed into root's home is not on the
+   remote user's PATH and its files may be root-owned. Check where the tool landed; if a
+   Feature put it there, `DC-FEAT-003` is how a Feature learns which user it installs for.
 6. **Ordering within a hook.** Feature-contributed commands always run before the user's
    command for the same hook, so a Feature's setup is done but a *later* user hook's is not.
    Check you are not depending on something a subsequent hook produces.
 7. **Secrets reach the two environments by different routes.** A value you can echo in the
-   terminal may be absent in the hook, or the reverse. Where a real secret is supposed to
-   come from — and where it must not — is `DC-SEC-001`. Do not diagnose this one by asking
-   the user to print the value.
+   terminal may be absent in the hook, or the reverse; where a real secret should come from is
+   `DC-SEC-001`. Do not diagnose this one by asking the user to print the value.
 
 ---
 
