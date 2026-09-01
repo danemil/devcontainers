@@ -15,67 +15,148 @@
 //      prose belongs in double-quoted lines joined with \n -- where backticks and
 //      ${...} are both inert and survive verbatim.
 //
+// KNOWN LIMITATION of check 2: the scanner does not recognise regex literals, so a
+// quote or backtick inside /.../ can desynchronise it. Check 1 is unaffected.
+//
 // Exit 0 = clean, 1 = parse failure, 2 = usage.
 import fs from 'node:fs';
+import process from 'node:process';
 
-const file = process.argv[2];
-if (!file) { console.error('usage: wf-preflight.mjs <script.js>'); process.exit(2) }
-const src = fs.readFileSync(file, 'utf8');
+const EXIT = { CLEAN: 0, PARSE_FAILURE: 1, USAGE: 2 };
 
-const parseErr = (() => {
+// The identifiers the Workflow runtime injects into a script's scope. A script that
+// references anything else at top level still parses, so this list only needs to
+// cover names the parser would otherwise reject as illegal `await` targets etc.
+const RUNTIME_GLOBALS = ['agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'workflow'];
+
+const PARSE_FAILURE_ADVICE = [
+  'Most likely cause: a markdown backtick in prose inside a `...` prompt,',
+  'which closed the string early. The parser names the word AFTER it, not',
+  'the backtick, and shows only the first of possibly several sites.',
+  '',
+  'Fix by construction - put prose in double-quoted lines:',
+  '  prompt: [',
+  '    "5. The `customizations` namespace, esp. `customizations.vscode`.",',
+  '    "Slash commands use ${input:...} and !`bash` execution.",',
+  '  ].join("\\n")',
+  '',
+  'Backticks, ${...} and apostrophes are all inert there - no escaping at all.',
+];
+
+const CONVENTION_ADVICE = [
+  'These parse today but are one markdown backtick away from breaking,',
+  'and any ${...} in them interpolates instead of reaching the agent:',
+  '',
+];
+
+/**
+ * Compile the script the way the Workflow runtime does: `export const meta`
+ * demoted to a plain const, body wrapped in an async IIFE so top-level `await`
+ * is legal. Returns the parser's message, or null when the script parses.
+ */
+function parseError(src) {
+  const body = src.replace(/^export const meta =/m, 'const meta =');
   try {
-    new Function('agent','parallel','pipeline','phase','log','args','budget','workflow',
-      'return (async()=>{' + src.replace(/^export const meta =/m, 'const meta =') + '})()');
+    new Function(...RUNTIME_GLOBALS, `return (async()=>{${body}})()`);
     return null;
-  } catch (e) { return e.message }
-})();
-
-if (parseErr) {
-  console.log(`PARSE: FAIL - ${parseErr}\n`);
-  console.log('Most likely cause: a markdown backtick in prose inside a `...` prompt,');
-  console.log('which closed the string early. The parser names the word AFTER it, not');
-  console.log('the backtick, and shows only the first of possibly several sites.\n');
-  console.log('Fix by construction - put prose in double-quoted lines:');
-  console.log('  prompt: [');
-  console.log('    "5. The `customizations` namespace, esp. `customizations.vscode`.",');
-  console.log('    "Slash commands use ${input:...} and !`bash` execution.",');
-  console.log('  ].join("\\n")');
-  console.log('\nBackticks, ${...} and apostrophes are all inert there - no escaping at all.');
-  process.exit(1);
+  } catch (e) {
+    return e.message;
+  }
 }
 
-// Script parses, so lexer state is sound and this walk is reliable.
-const multiline = [];
-let i = 0, mode = 'code', depth = 0, start = -1;
-while (i < src.length) {
-  const c = src[i], c2 = src.slice(i, i + 2);
-  if (mode === 'code') {
-    if (c2 === '//') { const n = src.indexOf('\n', i); if (n < 0) break; i = n; continue }
-    if (c2 === '/*') { i = src.indexOf('*/', i) + 2; continue }
-    if (c === '"' || c === "'") { mode = c; i++; continue }
-    if (c === '`') { mode = 'tpl'; start = i; i++; continue }
-    if (c === '}' && depth > 0) { depth--; mode = 'tpl'; i++; continue }
-    i++; continue;
+/**
+ * Walk the source with a small lexer that tracks comments, quoted strings and
+ * template literals (including `${...}` nesting), and return every template
+ * literal whose body spans more than one line, as { line, lines }.
+ *
+ * Only reliable once parseError() has returned null: on a script that does not
+ * parse, lexer state is unknowable and the result would be noise.
+ */
+function findMultilineTemplates(src) {
+  const found = [];
+  const MODE = { CODE: 'code', DQ: '"', SQ: "'", TEMPLATE: 'tpl' };
+  let i = 0;
+  let mode = MODE.CODE;
+  let interpolationDepth = 0; // how many `${` we are inside; >0 means `}` returns to TEMPLATE
+  const templateStarts = [];  // offsets of every template literal currently open, innermost last
+
+  const lineOf = (offset) => src.slice(0, offset).split('\n').length;
+
+  while (i < src.length) {
+    const c = src[i];
+    const pair = src.slice(i, i + 2);
+
+    if (mode === MODE.CODE) {
+      if (pair === '//') {
+        const eol = src.indexOf('\n', i);
+        if (eol < 0) break;
+        i = eol;
+        continue;
+      }
+      if (pair === '/*') {
+        const end = src.indexOf('*/', i);
+        if (end < 0) break;
+        i = end + 2;
+        continue;
+      }
+      if (c === MODE.DQ || c === MODE.SQ) { mode = c; i++; continue; }
+      if (c === '`') { mode = MODE.TEMPLATE; templateStarts.push(i); i++; continue; }
+      if (c === '}' && interpolationDepth > 0) { interpolationDepth--; mode = MODE.TEMPLATE; i++; continue; }
+      i++;
+      continue;
+    }
+
+    if (mode === MODE.DQ || mode === MODE.SQ) {
+      if (c === '\\') { i += 2; continue; }
+      if (c === mode) mode = MODE.CODE;
+      i++;
+      continue;
+    }
+
+    // mode === MODE.TEMPLATE
+    if (c === '\\') { i += 2; continue; }
+    if (pair === '${') { interpolationDepth++; mode = MODE.CODE; i += 2; continue; }
+    if (c === '`') {
+      const body = src.slice(templateStarts.pop(), i);
+      if (body.includes('\n')) {
+        found.push({ line: lineOf(i - body.length), lines: body.split('\n').length });
+      }
+      mode = MODE.CODE;
+      i++;
+      continue;
+    }
+    i++;
   }
-  if (mode === '"' || mode === "'") {
-    if (c === '\\') { i += 2; continue }
-    if (c === mode) mode = 'code';
-    i++; continue;
-  }
-  if (c === '\\') { i += 2; continue }
-  if (c2 === '${') { depth++; mode = 'code'; i += 2; continue }
-  if (c === '`') {
-    const body = src.slice(start, i);
-    if (body.includes('\n')) multiline.push({ line: src.slice(0, start).split('\n').length, lines: body.split('\n').length });
-    mode = 'code'; i++; continue;
-  }
-  i++;
+  return found;
 }
 
-console.log('PARSE: ok');
-if (!multiline.length) { console.log('CONVENTION: ok - no multi-line template literals.'); process.exit(0) }
-console.log(`\nCONVENTION: ${multiline.length} multi-line template literal(s) holding prose.`);
-console.log('These parse today but are one markdown backtick away from breaking,');
-console.log('and any ${...} in them interpolates instead of reaching the agent:\n');
-for (const m of multiline) console.log(`  ${file}:${m.line}  (${m.lines} lines)`);
-console.log('\nPrefer:  prompt: [ "line one", "line two with `code` and ${vars}" ].join("\\n")');
+function main(argv) {
+  const file = argv[2];
+  if (!file) {
+    console.error('usage: wf-preflight.mjs <script.js>');
+    return EXIT.USAGE;
+  }
+  const src = fs.readFileSync(file, 'utf8');
+
+  const err = parseError(src);
+  if (err) {
+    console.log(`PARSE: FAIL - ${err}\n`);
+    console.log(PARSE_FAILURE_ADVICE.join('\n'));
+    return EXIT.PARSE_FAILURE;
+  }
+
+  console.log('PARSE: ok');
+  const multiline = findMultilineTemplates(src);
+  if (multiline.length === 0) {
+    console.log('CONVENTION: ok - no multi-line template literals.');
+    return EXIT.CLEAN;
+  }
+
+  console.log(`\nCONVENTION: ${multiline.length} multi-line template literal(s) holding prose.`);
+  console.log(CONVENTION_ADVICE.join('\n'));
+  for (const m of multiline) console.log(`  ${file}:${m.line}  (${m.lines} lines)`);
+  console.log('\nPrefer:  prompt: [ "line one", "line two with `code` and ${vars}" ].join("\\n")');
+  return EXIT.CLEAN;
+}
+
+process.exit(main(process.argv));
