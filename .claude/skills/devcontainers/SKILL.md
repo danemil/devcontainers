@@ -210,8 +210,10 @@ is not the same as having looked and found nothing.
 Every "checked, no finding" entry in the tally is written as `DC-XXX-NNN  read: <input>
 (<where>), <input> (<where>) …`, naming **every** input on that rule's `Inputs` line; an entry
 that cannot name every one is **not checked**, and a clean bucket with a bare count is not a
-tally. Where an `Inputs` line names the image metadata label conditionally, "read" means the
-image was pulled and the label read.
+tally. A `<where>` is a file and line, or `image pulled, label read` — never a bare "config".
+Where an `Inputs` line names the image metadata label conditionally and the condition holds,
+"read" means the image was pulled and the label read; where it does not hold, the label is not
+an input for this config and is left out of the entry.
 
 ### The not-checked block
 
@@ -270,8 +272,9 @@ inputs were never read. `DC-DEP-001` is a finding for a different reason, and it
 generalises — it reports only keys it can *see* in the file, and a value present in the file wins
 the merge, so what it cannot see can cost it a missed finding and can never produce a false one.
 That direction argument holds for every rule that fires on presence, and it does not make the
-rule label-immune: three of its four inputs have no row in the source at all. Every placement
-follows from the scenario plus the rule's own `Detect`; re-derive rather than copy. What does not
+rule label-immune: all but one of the properties it reads have no row in the source at all.
+Every placement follows from the scenario plus the rule's own `Inputs` line — the list for rows
+1–3 — and, for row 4, the `Detect`'s scope clause; re-derive rather than copy. What does not
 vary is the reconciliation: twelve, every time. Never merge the buckets, never let a
 green-sounding sentence stand in for any, and never drop an unplaceable rule from the report.
 
