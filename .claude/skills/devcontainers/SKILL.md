@@ -1,6 +1,6 @@
 ---
 name: devcontainers
-description: Use when creating, editing, reviewing, validating or debugging a devcontainer.json, .devcontainer/ directory, Dev Container Feature or Template, or when a containerised dev environment behaves differently from the host, fails to build, or is slow to start. Covers the containers.dev specification, Features, Templates, lifecycle commands, Codespaces prebuilds, and the tools that support them.
+description: Use when creating, editing, reviewing, validating or debugging a devcontainer.json, .devcontainer/ directory or Dev Container Feature, or when a containerised dev environment behaves differently from the host, fails to build, or is slow to start. Covers the containers.dev specification, Features, lifecycle commands, Codespaces prebuilds, and the tools that support them. Does not cover Dev Container Template authoring.
 license: MIT
 metadata:
   corpus_version: "0.1.0"
@@ -22,7 +22,8 @@ If the request is ambiguous, ask which one before doing work. If an audit produc
 and the user then says "fix them", that is a switch to AUTHOR — announce the switch, because
 AUDIT does not edit files.
 
-Load a reference file only in the mode that names it. Do not pre-load both.
+Load the reference file the mode names. Do not load both up front; DEBUG may open the corpus
+on demand when a specific rule turns out to be implicated.
 
 ---
 
@@ -152,29 +153,56 @@ the corpus was unavailable and stop; an audit with a remembered corpus is worse 
 One header line, then findings, then the not-checked block, then the tally.
 
 ```
-devcontainers · AUDIT · rules corpus 0.1.0 · .devcontainer/devcontainer.json
+devcontainers · AUDIT · .devcontainer/devcontainer.json · rules corpus <version>
 ```
 
-If you cannot read the corpus version, omit it rather than guess.
+Take the corpus version from `references/rules.md` if it carries one. If it does not, omit
+the version rather than guess — in particular, do not print this file's own `corpus_version`
+as if it were the corpus's, because nothing keeps the two in step.
 
-Every finding line carries the rule ID and the tier tag. No exceptions:
+Every finding line carries the rule ID and the tier tag. No exceptions. The shape:
 
 ```
-DC-SEC-001  [SPEC]  ERROR  devcontainer.json:22  remoteEnv carries what looks like a token
-DC-LIFE-001 [SPEC]  ERROR  devcontainer.json:31  npm ci in postCreateCommand is not prebuilt
-DC-CLAUDE-001 [OPINION] WARN devcontainer.json:8  remoteUser not set
+DC-XXX-NNN  [TIER]  SEVERITY  <file>:<line>  <what was found>
 ```
 
-The tier tag is printed on every line so that a reader who quotes one line out of the report
-still carries the SPEC/OPINION distinction with it. An `[OPINION]` line is this package's
-recommendation and must never be phrased as a spec requirement.
+Severity and tier are corpus-owned and they change. Read both from the `Severity` and `Tier`
+fields of the rule you just opened — never from memory, never from an example. The tier tag
+is printed on every line so a reader who quotes one line still carries the SPEC/OPINION
+distinction with it; an `[OPINION]` line must never be phrased as a spec requirement.
 
-Give each finding the fix from the rule's own `Fix` field. Keep it to the change; do not
-expand it into a rewrite of the file.
+Give each finding the fix from the rule's own `Fix` field, kept to the change rather than
+expanded into a rewrite. Treat a `Fix` snippet as illustrative: AUDIT does not edit and does
+not run, and anything in one that builds or starts a container still needs explicit
+confirmation (refusal 5).
 
 **A finding with no rule ID is not a finding.** If you noticed something real that no rule
 covers, put it under a separate `Observations` heading, label it as outside the corpus, and
 do not give it a severity.
+
+### Every rule lands in exactly one bucket
+
+Each of the twelve rules must end up in exactly one of four places. Reconcile before you
+emit: the buckets total twelve. A rule silently missing from the report is the same failure
+as "not checked" reading as "passed".
+
+| Bucket | Meaning |
+| --- | --- |
+| **finding** | evaluated, and it fired |
+| **checked, no finding** | evaluated against this config, did not fire |
+| **not checked** | not evaluated — an input the rule's `Detect` needs was unavailable |
+| **not applicable** | the rule's own `Detect` scopes it out of this config |
+
+A rule goes in **not checked**, never in "checked, no finding", whenever `Detect` needed
+something you did not have: the resolved Feature install order when the CLI is absent, a
+Feature's `install.sh` when the Feature is not vendored, anything the base image metadata
+label may contribute when the image was not pulled. Not having looked is not the same as
+having looked and found nothing.
+
+A rule goes in **not applicable** only when its own `Detect` scopes it out — a rule limited
+to configs that install a particular tool, applied to a config that does not; a
+Feature-authoring rule, applied to a repo that authors no Features. Name the condition. If
+you cannot decide which bucket a rule belongs in, it is **not checked**.
 
 ### The not-checked block
 
@@ -195,17 +223,28 @@ it out of this block and report its result instead.
 
 ### The tally
 
-Close with counts and an explicit separation of the two "no problem" states:
+Close with all four buckets, reconciled to twelve. A worked example, for a repo with no
+devcontainer CLI available, no Features vendored, the base image not pulled, no Feature
+authoring of its own, and no Claude Code in the config:
 
 ```
-findings:      2 ERROR, 1 WARN, 0 INFO
-checked, no finding:  DC-LIFE-002, DC-LIFE-003, DC-FEAT-001, DC-FEAT-002, DC-USER-001, DC-ENV-001, DC-DEP-001
-not checked:   7 areas (above)
+findings:             3   DC-SEC-001, DC-LIFE-001, DC-DEP-001
+checked, no finding:  4   DC-LIFE-002, DC-LIFE-003, DC-USER-001, DC-ENV-001
+not checked:          3   DC-FEAT-001  install order not resolved — devcontainer CLI not available
+                          DC-FEAT-002  Feature contents not vendored in this workspace
+                          DC-PERF-001  mounts can also arrive via the image metadata label — image not pulled
+not applicable:       2   DC-FEAT-003  this repo authors no Features
+                          DC-CLAUDE-001  config does not install or run Claude Code
+                          -----
+                          12 of 12 rules accounted for
+
+plus the non-rule areas in the not-checked block above.
 ```
 
-"checked, no finding" means the rule was evaluated against this config and did not fire.
-"not checked" means nothing was evaluated. Never merge these two lists, never let a
-green-sounding sentence stand in for either.
+Which rules land where depends on the config and on what was available — that is one run, not
+a shape to copy. What does not vary is the reconciliation: twelve, every time. Never merge
+the buckets, never let a green-sounding sentence stand in for any of them, and never resolve
+an unplaceable rule by dropping it from the report.
 
 ---
 
@@ -216,6 +255,13 @@ Write or modify a configuration.
 **Load `references/spec-facts.md`.** It carries the mechanics — lifecycle ordering and re-run
 gating, prebuild behaviour, Feature resolution, image metadata merge rules, Codespaces
 divergences, substitutions, the CLI surface. Use it instead of recalling property names.
+
+**If it cannot be read, say so in your first sentence and continue in a narrowed mode.** You
+may still edit properties already present in the user's file and still cite rule IDs. You may
+not introduce a property that is not already there, assert a default, or claim a substitution
+or CLI flag exists, without a source you can point at — the spec is at
+<https://containers.dev/implementors/json_reference/>. Do not fill the gap from memory and
+present the result as cited.
 
 ### Rules of engagement
 
@@ -233,16 +279,16 @@ divergences, substitutions, the CLI surface. Use it instead of recalling propert
   for a Dockerfile when it does not. `[OPINION]`
 - **Pin versions.** An untagged Feature or image reference means `latest` and makes the
   environment non-reproducible from one week to the next.
-- **Say which hook and why** whenever you place a lifecycle command. Expensive work belongs
-  where prebuilds bake it — cite `DC-LIFE-001`. If you use the object form, say that its
-  entries run in parallel — cite `DC-LIFE-003`.
-- **Cite the rule for the decision**, not a paraphrase of it: secrets → `DC-SEC-001`;
-  `remoteUser` / `containerUser` and the derived `…-uid` image → `DC-USER-001`; environment
-  that lifecycle commands must see → `DC-ENV-001`; deprecated top-level properties →
-  `DC-DEP-001`; named volumes and their root ownership → `DC-PERF-001`; Feature ordering →
-  `DC-FEAT-001`; idempotence and rebuild-from-image freezing → `DC-FEAT-002`; the
-  `_REMOTE_USER` family inside a Feature's `install.sh` → `DC-FEAT-003`; Claude Code inside
-  the container → `DC-CLAUDE-001`.
+- **Say which hook you chose and why** whenever you place a lifecycle command, and open the
+  rule that governs the choice rather than paraphrasing it — `DC-LIFE-001` for which hooks a
+  prebuild bakes, `DC-LIFE-003` for the non-string forms, `DC-LIFE-002` for `waitFor`.
+- **Cite the rule for the decision**, and take the claim from the rule rather than from this
+  page. Routing by topic: secrets → `DC-SEC-001`; `remoteUser` / `containerUser` →
+  `DC-USER-001`; environment that lifecycle commands must see → `DC-ENV-001`; deprecated
+  top-level properties → `DC-DEP-001`; named volumes and workspace mounts → `DC-PERF-001`;
+  Feature install order → `DC-FEAT-001`; Feature idempotence and rebuild behaviour →
+  `DC-FEAT-002`; writing a Feature's `install.sh` → `DC-FEAT-003`; Claude Code inside the
+  container → `DC-CLAUDE-001`.
 - **Label every non-spec recommendation `[OPINION]` inline**, at the point of the
   recommendation, not in a footnote.
 
@@ -275,8 +321,14 @@ Start here and add only what the user needs:
 ```
 
 Every further property should answer a question the user actually asked. A config that
-carries `runArgs`, `mounts`, `postAttachCommand` and a Dockerfile because a template had them
-is harder to debug than one that does not.
+carries `runArgs`, `mounts`, `postAttachCommand` and a Dockerfile because it was copied from
+somewhere is harder to debug than one that does not.
+
+This starting point sets `remoteUser` and leaves `updateRemoteUserUID` unset, which is a
+condition `DC-USER-001` detects — deliberate, but it means the starting point is not
+audit-clean by construction. Open that rule, say what leaving the default does on the user's
+platform, and let them decide. Never hand over a config that would produce a finding without
+saying that it would.
 
 ---
 
@@ -284,7 +336,17 @@ is harder to debug than one that does not.
 
 Symptom-keyed. Match what the user typed to a heading, work the list in order, and stop at
 the first cause that explains the observed behaviour. Load `references/spec-facts.md` for the
-mechanics; open `references/rules.md` only if a specific rule turns out to be implicated.
+mechanics; open `references/rules.md` on demand when a specific rule turns out to be
+implicated.
+
+**If `references/spec-facts.md` cannot be read**, say so and keep going — the symptom lists
+stand on their own. What you must not do without it is assert a default value, an enum, a
+merge rule or a CLI flag from memory: narrow each step to what you can observe in the user's
+own files and output.
+
+The lists name an observable and route to a rule. They deliberately do not carry the rule's
+claim, its severity or its tier — those are corpus-owned and they change. Open the rule
+before asserting anything normative.
 
 Ask for the actual error text before theorising. "It won't build" plus the first fifteen
 lines of output resolves faster than any list here.
@@ -295,7 +357,7 @@ lines of output resolves faster than any list here.
    real cause is usually several screens above it.
 2. **Architecture mismatch.** An arm64 host pulling an amd64-only image or Feature. Check for
    an explicit `--platform` or `build.options`, and check whether the Feature publishes an
-   arm64 variant. `[OPINION]` — not a spec issue, but a leading cause.
+   arm64 variant. `[OPINION]` — a host-side observation, not a rule and not spec.
 3. **A Feature's `install.sh` failed.** Identify which one from the output. It runs as root
    at build time; a script that assumes the final user's home directory or PATH breaks here.
    See `DC-FEAT-003`.
@@ -324,34 +386,36 @@ before assuming a bug.
    is absent.
 3. **`forwardPorts` has no `"host:port"` form** in Codespaces. That entry is not honoured.
 4. **`shutdownAction` does not apply.**
-5. **Prebuilds change what has already run.** `onCreateCommand` and `updateContentCommand`
-   are baked into the prebuild snapshot; `postCreateCommand` is not. The classic shape is
-   "the environment is ready instantly locally but the prebuilt Codespace still installs
-   dependencies on first attach", or the mirror image. This is `DC-LIFE-001` and it is the
-   single highest-value non-obvious cause in this section.
+5. **A prebuild changes what has already run by the time you attach.** The observable shape:
+   setup work that is finished on one side is still running, or missing, on the other — "the
+   environment is ready instantly locally but the prebuilt Codespace still installs
+   dependencies on first attach", or the mirror image. Which lifecycle hooks a prebuild bakes
+   and which it does not is `DC-LIFE-001`; open it and compare against where the user's
+   expensive step actually sits.
 6. **Secrets come from Codespaces secrets**, not from a local file the config expects.
 
 ### "It's slow to start"
 
 1. **Establish which phase is slow** — image pull, image build, or lifecycle commands. They
    have completely different fixes and the user usually has not separated them.
-2. **Expensive work in the wrong hook.** Work in `postCreateCommand` is never baked into a
-   prebuild; the same work in `onCreateCommand` or `updateContentCommand` is. `DC-LIFE-001`.
+2. **The expensive step is in a hook that runs every time.** Find which hook it is in, then
+   check that against what a prebuild bakes — `DC-LIFE-001`.
 3. **Bind-mount I/O penalty** on macOS and Windows, for directories with many small files
-   (`node_modules`, `.venv`, build caches). The sanctioned fix is a named volume for the hot
-   directory — and a named volume comes up root-owned and needs an explicit `chown`.
-   `DC-PERF-001`. On Windows, a repository living under `/mnt/c` and accessed from WSL2 is
-   the single largest penalty available and moving it into the WSL filesystem often beats
-   every other change. `[OPINION]`
-4. **A second image is being built behind your back.** `updateRemoteUserUID` defaults to true
-   on Linux when `containerUser` or `remoteUser` is set, deriving an extra `…-uid` image.
-   `DC-USER-001`.
-5. **Attach is waiting on a hook.** `waitFor` decides how far startup runs before the editor
-   attaches; the default is `updateContentCommand`. `DC-LIFE-002` carries the legal enum —
-   an invalid value here is a config error, not a slow environment.
-6. **Serial work that could be parallel.** Lifecycle commands accept an object form whose
-   entries run in parallel. `DC-LIFE-003`.
-7. **Feature count.** Each Feature is an install step. Ask whether all of them are still used.
+   (`node_modules`, `.venv`, build caches). The tell is that the slowness is in file access,
+   not in the network or the build, and that it scales with file count rather than size.
+   `DC-PERF-001` covers what to do about it and what the fix costs you afterwards — do not
+   propose a volume without reading it.
+4. **Windows only:** a repository living under `/mnt/c` and accessed from WSL2 crosses a
+   filesystem boundary on every access; moving it into the WSL filesystem often beats every
+   other change here. `[OPINION]` — this is a host-side observation, not a rule and not spec.
+5. **A second image is being built that nobody asked for.** If the build log shows a derived
+   image appearing after the main one, go to `DC-USER-001`.
+6. **Attach is waiting on a hook.** `waitFor` decides how far startup runs before the editor
+   attaches. Read what it is set to, and check that the value is legal at all — the legal set
+   is in `DC-LIFE-002`.
+7. **Serial work that could overlap.** If several independent setup steps are chained into
+   one string, check whether a non-string form applies — `DC-LIFE-003`.
+8. **Feature count.** Each Feature is an install step. Ask whether all of them are still used.
 
 ### "My changes aren't taking effect"
 
@@ -365,25 +429,26 @@ before assuming a bug.
 3. **You edited a shadowed file.** Re-check discovery precedence.
 4. **The rebuild reused cached layers.** A rebuild that hits cache for every step changes
    nothing observable.
-5. **Rebuilding from a built image freezes Feature resolution.** Dependency resolution
-   happens only at initial creation from `devcontainer.json`; a rebuild from an image uses
-   the resolved set already recorded in the metadata label. `DC-FEAT-002`.
-6. **The property is not label-storable.** `features`, `runArgs`, `mounts`, `workspaceMount`,
-   `build.*`, `initializeCommand`, `image`, `appPort` and others never travel in the image
-   metadata label — see `references/spec-facts.md`. Changing one and rebuilding from a
-   prebuilt image will not do what the user expects.
-7. **Two Features with different options both install.** They are different Features to the
-   resolver, so an option change can leave the old install in place unless the Feature is
-   idempotent. `DC-FEAT-002`.
+5. **You changed a Feature or its options and rebuilt from an image rather than from
+   `devcontainer.json`.** Both halves of what goes wrong here — when Feature resolution is
+   decided, and what happens to a Feature that is asked to install twice — are `DC-FEAT-002`.
+   Open it before explaining the behaviour.
+6. **The property never travels in the image metadata label**, so changing it and rebuilding
+   from a prebuilt image changes nothing. Not label-storable: `initializeCommand`, `image`,
+   `build.*`, `dockerComposeFile`, `service`, `runServices`, `appPort`, `runArgs`,
+   `workspaceMount`, `workspaceFolder`, `features`, `overrideFeatureInstallOrder`.
+   **`mounts` is not on that list — it does travel, and it merges** (collected, last source
+   wins), so a `mounts` entry that appears not to apply is more likely being overridden than
+   ignored. `references/spec-facts.md` carries the full merge table.
 
 ### "It works in my terminal but not in postCreateCommand"
 
 This is `DC-ENV-001` far more often than anything else. Start there.
 
-1. **`userEnvProbe` decides which shell startup files contribute to the lifecycle
-   environment.** Values: `none`, `loginShell`, `loginInteractiveShell`, `interactiveShell`.
-   Default `loginInteractiveShell`. Your interactive terminal is not the same shell the
-   lifecycle command ran in.
+1. **Your interactive terminal is not the shell the lifecycle command ran in.** Which shell
+   startup files contribute to the lifecycle environment is decided by `userEnvProbe`. Read
+   the config to see whether it is set, then open `DC-ENV-001` for the legal values and which
+   one is in force when it is not set. Do not change the setting before reading the rule.
 2. **Find where the variable is actually set.** `.bashrc` is read by interactive shells;
    `.profile` and `.bash_profile` by login shells. Match the probe to the file, or — better —
    set the value in `containerEnv` or `remoteEnv` so it does not depend on shell startup at
@@ -395,17 +460,18 @@ This is `DC-ENV-001` far more often than anything else. Start there.
    container and is visible to everything in it; `remoteEnv` applies to the remote user's
    sessions and lifecycle commands. Something needed by the container entrypoint must be in
    `containerEnv`.
-5. **Root at build time, remote user afterwards.** A Feature's `install.sh` runs as root; a
-   tool it installs into root's home is not on the remote user's PATH. The `_REMOTE_USER`,
-   `_CONTAINER_USER`, `_REMOTE_USER_HOME` and `_CONTAINER_USER_HOME` variables are the
-   sanctioned way for a Feature to know where to install. `DC-FEAT-003`.
+5. **Root at build time, remote user afterwards.** Build-time installation runs as root;
+   lifecycle commands run as the remote user. A tool installed into root's home is not on the
+   remote user's PATH, and files it created may be root-owned. Check where the tool actually
+   landed. If a Feature put it there, `DC-FEAT-003` is how a Feature is supposed to know
+   which user it is installing for.
 6. **Ordering within a hook.** Feature-contributed commands always run before the user's
    command for the same hook — so a Feature's setup is done, but a *later* user hook's setup
    is not. Check you are not depending on something a subsequent hook produces.
-7. **Secrets are not in your shell.** Values supplied via a secrets file merge into the
-   lifecycle environment and are redacted from logs; they are not in your interactive
-   session, and a value you can echo in the terminal may be absent in the hook — or the
-   reverse. `DC-SEC-001`.
+7. **Secrets reach the two environments by different routes.** A value you can echo in the
+   terminal may be absent in the hook, or the reverse. Where a real secret is supposed to
+   come from — and where it must not — is `DC-SEC-001`. Do not diagnose this one by asking
+   the user to print the value.
 
 ---
 
@@ -420,5 +486,11 @@ This is `DC-ENV-001` far more often than anything else. Start there.
   Codespaces divergences, performance, docker-in-docker shapes, substitutions, the open
   `customizations` namespace, and the CLI surface. Loaded in AUTHOR and DEBUG.
 
-If a reference file cannot be read, say so and work from what you can verify. Do not
-reconstruct its contents from memory and present the result as cited.
+Each mode says what to do when the file it needs is missing — AUDIT stops, AUTHOR and DEBUG
+narrow. In all three: say the file was unavailable, and never reconstruct its contents from
+memory and present the result as cited.
+
+**Out of scope: authoring Dev Container Templates.** No rule covers writing or publishing one.
+The entry points are the `devcontainer templates` subcommands and
+<https://containers.dev/implementors/templates/>. Say this skill does not cover it rather than
+improvising guidance.

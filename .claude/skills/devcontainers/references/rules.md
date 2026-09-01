@@ -1,12 +1,30 @@
 # Dev container rules
 
+corpus_version: 0.1.0
+
+This line is the authoritative corpus version. An audit report that stamps a version reads it
+from here, not from the skill file; if the two disagree, this file wins. Bump the minor when a
+rule is added, retired or re-tiered, and the patch for a citation or wording correction.
+
 Twelve rules for auditing a `devcontainer.json`. This file is loaded on demand; read it when
 you are reviewing, writing, or debugging a dev container configuration and you need the
 specific, citable claim rather than general knowledge.
 
-Every rule carries a source. `SPEC` means the behaviour is stated in the Dev Container
-specification, the reference CLI, or official vendor documentation. `OPINION` means this
-package recommends it; the spec does not require it. Never present an OPINION rule as spec.
+Every rule carries a source. The tier encodes **two** axes, and a rule is `SPEC` only when it
+satisfies both:
+
+1. *Provenance* — the behaviour is stated in the Dev Container specification, the reference
+   CLI, or official vendor documentation, not inferred by this package.
+2. *Applicability* — the rule applies to any dev container, rather than being conditional on a
+   tool the Dev Container specification does not mention.
+
+`OPINION` means at least one of those fails: either this package is recommending something no
+source states, **or** the mechanism is vendor-documented but only bites projects that use a
+particular tool. `DC-CLAUDE-001` is the second kind — every mechanical claim in it is stated in
+Anthropic's own documentation, yet nothing in the Dev Container specification requires any of
+it, so it is `OPINION` and its `Detect` says which configurations it applies to at all. Never
+present an `OPINION` rule as spec; equally, do not read `OPINION` as "unsourced" without
+checking which axis failed.
 
 IDs are a published interface. They are never reused. A retired rule keeps its ID and gains
 `superseded_by`. A rule a project does not want is suppressed with `prompt_include: false`,
@@ -16,6 +34,10 @@ is exactly why IDs are never re-issued.
 Format:
 
 ```
+  (The lines below are indented two spaces ON PURPOSE. The corpus verification counts
+  `^- \*\*Severity:\*\*` and friends; un-indenting this template silently turns every
+  field count from 12 into 13 and the check still prints a plausible number.)
+
   ### DC-XXX-NNN · <one-sentence assertion>
   - **Severity:** ERROR | WARN | INFO
   - **Tier:** SPEC | OPINION
@@ -28,9 +50,15 @@ Format:
 
 ## Quoting conventions
 
-- Every quote was opened at its `Source` URL and confirmed verbatim on 2026-09-01. Backticks
-  inside a quote are the source's own inline-code markup; they render as `<code>` on the
-  published page.
+- Every quote was opened at its `Source` URL and confirmed verbatim on 2026-09-01, and every
+  `Source` URL was resolved and returns 200 on that date. Backticks inside a quote are the
+  source's own inline-code markup; they render as `<code>` on the published page.
+- A `Quote` field's value is delimited by the **first and last double-quote characters on the
+  line**; everything between them is source text. Two quotes are drawn from JSON and so contain
+  their own inner double quotes — this rule disambiguates them without altering the source.
+- Quotes are reproduced from the **markdown or JSON source** of the cited page. A published
+  page may render straight apostrophes and quotation marks typographically (`'` as `'`, `"` as
+  `"`); that is a rendering difference, not a quoting error.
 - A ` … ` inside a quote marks an elision between two passages **on the same source page** —
   usually a hyperlink target or an intervening clause. Each fragment either side of it is
   itself verbatim.
@@ -52,7 +80,17 @@ that scope explicitly. Treat its ERROR severity as a hypothesis, not a finding.
 
 None of `devcontainer`, `hadolint`, `trivy`, `dockle` or `docker scout` can be assumed
 present. Every shell snippet below probes with `command -v` first and degrades to a message.
-All twelve rules are detectable by reading `devcontainer.json`; the commands only corroborate.
+
+**No rule requires running a tool.** Ten of the twelve are detectable by reading
+`devcontainer.json` alone. The two Feature-authoring rules need one more file: `DC-FEAT-003`
+is detected by reading the Feature's own `install.sh`, and `DC-FEAT-002` is half config-side
+(a rebuild-from-image, a Feature listed twice with different options) and half `install.sh`
+side (the idempotency check). Nothing here depends on an installed binary.
+
+**The snippets are illustrative, not runnable on sight.** Two of them invoke `devcontainer up`,
+which creates a container and consumes time and disk. Never run either without the user's
+explicit confirmation — reproduce the snippet in a finding, do not execute it. An audit is
+read-only. `devcontainer features resolve-dependencies` is a read-only query and is exempt.
 
 ---
 
@@ -63,7 +101,7 @@ All twelve rules are detectable by reading `devcontainer.json`; the commands onl
 - **Quote:** "performing setup operations up to and including any `onCreateCommand` and `updateContentCommand` commands in the `devcontainer.json` file. No `postCreateCommand` commands are run during the creation of a prebuild."
 - **Verified:** 2026-09-01
 - **Detect:** Read `postCreateCommand`. Flag it when it carries cacheable, expensive setup — `npm ci`, `npm install`, `yarn install`, `pnpm install`, `pip install`, `poetry install`, `bundle install`, `go mod download`, `cargo fetch`, `apt-get install`, `make`, `gradle`, `mvn` — while `onCreateCommand` and `updateContentCommand` are absent or trivial. Check the object form entry by entry, not just the string form (see `DC-LIFE-003`). Corroborating, from the reference CLI's own flag definition in `src/spec-node/devContainersSpecCLI.ts`: "Stop after onCreateCommand and updateContentCommand, rerunning updateContentCommand if it has run before." — under `--prebuild`, `postCreateCommand` never fires at all. **Scope:** this only bites a project that actually uses prebuilds (Codespaces prebuild configurations, or a CI job invoking `--prebuild`). A project that never prebuilds is not wrong to put installs in `postCreateCommand`; say so rather than reporting a defect.
-- **Fix:** Move the cacheable half into `onCreateCommand` — which the containers.dev reference describes as usable by "Cloud services … when caching or prebuilding a container. This means that it will not typically have access to user-scoped assets or secrets." — or into `updateContentCommand`, which the same reference says "cloud services will also periodically execute … to refresh cached or prebuilt containers". Leave in `postCreateCommand` only work that needs the assigned user's own credentials or permissions. To confirm what a prebuild would bake:
+- **Fix:** Move the cacheable half into `onCreateCommand` — which the containers.dev reference describes as usable by "Cloud services … when caching or prebuilding a container. This means that it will not typically have access to user-scoped assets or secrets." — or into `updateContentCommand`, which the same reference says "cloud services will also periodically execute … to refresh cached or prebuilt containers". Leave in `postCreateCommand` only work that needs the assigned user's own credentials or permissions. To confirm what a prebuild would bake — **ask before running: this creates a container**:
   ```bash
   if command -v devcontainer >/dev/null 2>&1; then
     devcontainer up --workspace-folder . --prebuild
@@ -75,14 +113,14 @@ All twelve rules are detectable by reading `devcontainer.json`; the commands onl
 ### DC-SEC-001 · The reference CLI writes `remoteEnv` from devcontainer.json into the `devcontainer.metadata` image label by default; real secrets belong in `--secrets-file`.
 - **Severity:** ERROR
 - **Tier:** SPEC
-- **Source:** https://github.com/devcontainers/cli/blob/main/CHANGELOG.md
-- **Quote:** "Add `--omit-config-remote-env-from-metadata` to omit remoteEnv from devcontainer config on container metadata label."
+- **Source:** https://github.com/devcontainers/cli/blob/main/src/spec-node/devContainersSpecCLI.ts
+- **Quote:** "'omit-config-remote-env-from-metadata': { type: 'boolean', default: false, hidden: true, description: 'Omit remoteEnv from devcontainer.json for container metadata label' }"
 - **Verified:** 2026-09-01
-- **Detect:** The existence of an opt-*out* flag is what establishes the default: without `--omit-config-remote-env-from-metadata`, `remoteEnv` is written to the image label, so anyone who can pull the image can read it. Flag any `remoteEnv` or `containerEnv` entry whose key matches `TOKEN`, `SECRET`, `KEY`, `PASSWORD`, `PASSWD`, `CREDENTIAL`, `_PAT`, or whose value is a literal rather than a `${localEnv:NAME}` reference. `containerEnv` is worse still — it becomes a Dockerfile `ENV` and is baked into a layer. Apply the same test to `build.args`, which are visible in image history.
-- **Fix:** Declare the name under the top-level `secrets` property so the config documents what is needed — that property is declarative only, it does not inject anything — and pass the value at run time with `--secrets-file <json>` on `up` or `run-user-commands`. The same changelog records "Secret support for up and run-user-commands" and "Mask user secrets in logs". If a value must stay in `remoteEnv`, indirect it through `${localEnv:NAME}` so the literal is not committed, and remember the label still records the reference.
+- **Detect:** `default: false` on the *omit* flag is the reference CLI stating outright that the omission is off — so `remoteEnv` **is** written to the metadata label unless you ask otherwise, and anyone who can pull the image can read it. `hidden: true` sharpens the rule: the flag does not appear in `--help`, so an operator will not discover the behaviour by asking the tool. Two independent corroborations: the CLI changelog entry "Add `--omit-config-remote-env-from-metadata` to omit remoteEnv from devcontainer config on container metadata label.", and the spec's image-metadata document, which lists what may be recorded in the label — "Current dev container config that can be recorded in the image: `mounts`, `onCreateCommand`" … "`remoteUser`, `userEnvProbe`, `remoteEnv`, `containerEnv`". Flag any `remoteEnv` or `containerEnv` entry whose key matches `TOKEN`, `SECRET`, `KEY`, `PASSWORD`, `PASSWD`, `CREDENTIAL`, `_PAT`, or whose value is a literal rather than a `${localEnv:NAME}` reference. `containerEnv` is worse still — it becomes a Dockerfile `ENV` and is baked into a layer. Apply the same test to `build.args`, which are visible in image history.
+- **Fix:** Declare the name under the top-level `secrets` property so the config documents what is needed — that property is declarative only, it does not inject anything — and pass the value at run time with `--secrets-file <json>` on `up` or `run-user-commands`. The CLI changelog records "Secret support for up and run-user-commands" and "Mask user secrets in logs". If a value must stay in `remoteEnv`, indirect it through `${localEnv:NAME}` so the literal is not committed, and remember the label still records the reference. **Keep the secrets file out of the repository.** A path inside the workspace is one `git add .` away from committing the secret this rule exists to protect — put it under the user's home directory, or if it must live in the tree, add it to `.gitignore` in the same change and verify with `git check-ignore`. **Ask before running: this creates a container.**
   ```bash
   if command -v devcontainer >/dev/null 2>&1; then
-    devcontainer up --workspace-folder . --secrets-file ./.devcontainer/secrets.json
+    devcontainer up --workspace-folder . --secrets-file ~/.devcontainer-secrets/<project>.json
   else
     echo "devcontainer CLI not installed - move the value out of remoteEnv by editing the config"
   fi
@@ -92,9 +130,9 @@ All twelve rules are detectable by reading `devcontainer.json`; the commands onl
 - **Severity:** ERROR
 - **Tier:** SPEC
 - **Source:** https://github.com/devcontainers/spec/blob/main/schemas/devContainer.base.schema.json
-- **Quote:** "enum": [ "initializeCommand", "onCreateCommand", "updateContentCommand", "postCreateCommand", "postStartCommand" ] … "The user command to wait for before continuing execution in the background while the UI is starting up. The default is \"updateContentCommand\"."
+- **Quote:** ""enum": [ "initializeCommand", "onCreateCommand", "updateContentCommand", "postCreateCommand", "postStartCommand" ] … "The user command to wait for before continuing execution in the background while the UI is starting up. The default is \"updateContentCommand\".""
 - **Verified:** 2026-09-01
-- **Detect:** Read `waitFor`. Anything outside those five strings is invalid — `postAttachCommand` is the one people reach for, because it is a real lifecycle hook and the only one missing from the enum. Nothing in a normal workflow catches this: the reference CLI parses and merges the config but does not validate it against the JSON Schema, so an invalid `waitFor` reaches the tool unchallenged, and schema registration only gives editor-time squiggles.
+- **Detect:** Read `waitFor`. Anything outside those five strings is invalid — `postAttachCommand` is the one people reach for, because it is a real lifecycle hook and the only one missing from the enum. Nothing in a normal workflow catches this: the reference CLI parses and merges the config but does not validate it against the JSON Schema, so an invalid `waitFor` reaches the tool unchallenged, and schema registration only gives editor-time squiggles. (That last mechanism is stated by no document; it is checkable — the CLI's `package.json` carries a JSONC parser and no JSON-schema validator. Treat it as verified-by-inspection, not as cited.)
 - **Fix:** Choose from the five. If the intent was "block until my setup finishes", the value is `postCreateCommand`, not `postAttachCommand`. If the intent was the default, delete the property. Note the consequence of the default: `postCreateCommand` runs in the background after the tool reports success, so a slow `postCreateCommand` is not a hang.
 
 ### DC-FEAT-001 · `overrideFeatureInstallOrder` cannot reorder a `dependsOn` edge — it only assigns `roundPriority` inside a round-based sort and can never violate the dependency graph.
@@ -116,7 +154,7 @@ All twelve rules are detectable by reading `devcontainer.json`; the commands onl
 ### DC-FEAT-002 · Feature dependency resolution happens only at initial creation from devcontainer.json, and two Features with different options are different Features that both install — so Features must be idempotent.
 - **Severity:** WARN
 - **Tier:** SPEC
-- **Source:** https://github.com/devcontainers/spec/blob/main/proposals/feature-dependencies.md
+- **Source:** https://github.com/devcontainers/spec/blob/main/docs/specs/feature-dependencies.md
 - **Quote:** "For subsequent creations from an image (or resumes of a dev container), the dependency tree is **not** re-calculated. … Since two Features with different options are considered different, a single Feature may be installed more than once.  Features should be idempotent."
 - **Verified:** 2026-09-01
 - **Detect:** Two symptoms. (1) A config that starts `FROM` a previously built dev container image and expects a Feature version bump or a changed `dependsOn` to take effect: it will not, because the resolved set is frozen into the `devcontainer.metadata` label at first creation. (2) The same Feature referenced twice with different options — directly in `features`, or once directly and once pulled in by another Feature's `dependsOn` — which installs it twice. If you author Features, read `install.sh` for non-idempotent steps: appending to `PATH`, `~/.bashrc` or `/etc/profile.d` without a guard, `useradd` without checking, unconditional `git clone`.
@@ -138,7 +176,7 @@ All twelve rules are detectable by reading `devcontainer.json`; the commands onl
 - **Quote:** "add a `postCreateCommand` to update the owner of the folder you mount since it may have been mounted as root"
 - **Verified:** 2026-09-01
 - **Detect:** Look for a `mounts` entry with `type=volume` — typically `source=${localWorkspaceFolderBasename}-node_modules,target=${containerWorkspaceFolder}/node_modules,type=volume` — or a `workspaceMount` with `type=volume`, in a config that also sets a non-root `remoteUser` or `containerUser`. Flag it when no `postCreateCommand` chowns that target. The failure is a permission error on first write into the mounted directory, not a build failure, so it surfaces late. The same page notes the step "is not required if you will be running in the container as `root`" — a root container is not a finding here.
-- **Fix:** Add the ownership fix to `postCreateCommand`, naming the same user as `remoteUser`, for example `"postCreateCommand": "sudo chown node node_modules"`. If the whole tree is on a volume, `workspaceMount` and `workspaceFolder` must both be set — each requires the other. Note that a `mounts`-based optimisation is local-only: Codespaces ignores bind mounts except the Docker socket, so verify the config still works there.
+- **Fix:** Add the ownership fix to `postCreateCommand`, naming the same user as `remoteUser`, for example `"postCreateCommand": "sudo chown node node_modules"`. If the whole tree is on a volume, `workspaceMount` and `workspaceFolder` must both be set — the containers.dev reference says of each that it "Requires `workspaceFolder` be set as well" and "Requires `workspaceMount` be set". Note that a `mounts`-based optimisation is local-only: Codespaces ignores bind mounts except the Docker socket, so verify the config still works there. (That Codespaces limitation is stated by no document cited here; treat it as checkable background, not as cited.)
 
 ### DC-USER-001 · `updateRemoteUserUID` defaults to true on Linux whenever `containerUser` or `remoteUser` is set, and the reference CLI then builds a second, derived `…-uid` image.
 - **Severity:** WARN
@@ -161,7 +199,7 @@ All twelve rules are detectable by reading `devcontainer.json`; the commands onl
 ### DC-LIFE-003 · Lifecycle commands accept an object form whose entries run in parallel, so `postCreateCommand` is `string | array | object` and single-string analysis misses cases.
 - **Severity:** INFO
 - **Tier:** SPEC
-- **Source:** https://github.com/devcontainers/spec/blob/main/proposals/parallel-lifecycle-script-execution.md
+- **Source:** https://github.com/devcontainers/spec/blob/main/docs/specs/parallel-lifecycle-script-execution.md
 - **Quote:** "All lifecycle scripts will be extended to support `object` types. The key of the `object` will be a unique name for the command and the value will be the `string` or `array` command. … Each entry in the `object` will be run in parallel during that lifecycle step."
 - **Verified:** 2026-09-01
 - **Detect:** Before applying any other lifecycle rule, determine which of the three forms each hook uses. A string runs through `/bin/sh`, so `&&` chains. An array is exec'd directly with no shell, so `["npm start && npm test"]` is one argv, not two commands, and `&&` is a literal argument. An object runs every entry concurrently — flag object entries that assume ordering between each other, such as one entry creating a directory or a database another entry writes to. The source adds that "Each command must exit successfully for the stage to be considered successful", so a parallel entry failing fails the whole stage.
@@ -171,9 +209,9 @@ All twelve rules are detectable by reading `devcontainer.json`; the commands onl
 - **Severity:** WARN
 - **Tier:** SPEC
 - **Source:** https://github.com/microsoft/vscode/blob/main/extensions/configuration-editing/schemas/devContainer.vscode.schema.json
-- **Quote:** "extensions": { … "deprecated": true, "deprecationMessage": "Use 'customizations/vscode/extensions' instead" }
+- **Quote:** ""deprecated": true, "deprecationMessage": "Use 'customizations/vscode/extensions' instead""
 - **Verified:** 2026-09-01
-- **Detect:** Flag `extensions`, `settings` or `devPort` at the top level of devcontainer.json. The schema carries the identical shape for all three — `"Use 'customizations/vscode/settings' instead"` and `"Use 'customizations/vscode/devPort' instead"`. Separately, flag `appPort`; the containers.dev reference says of it: "In most cases, we recommend using the new [forwardPorts property](#general-devcontainerjson-properties). This property accepts a port or array of ports that should be published locally when the container is running." These are deprecations, not errors — the old keys still work — so report them as modernisation, not breakage.
+- **Detect:** That pair sits on the **top-level** `extensions` property. The schema also defines `customizations.vscode.extensions`, which opens identically but carries no deprecation — searching the schema for `"extensions"` finds the wrong one first, so match on the `deprecated` pair, not on the property name. Flag `extensions`, `settings` or `devPort` at the top level of devcontainer.json. The schema carries the identical shape for all three — `"Use 'customizations/vscode/settings' instead"` and `"Use 'customizations/vscode/devPort' instead"`. Separately, flag `appPort`; the containers.dev reference says of it: "In most cases, we recommend using the new [forwardPorts property](#general-devcontainerjson-properties). This property accepts a port or array of ports that should be published locally when the container is running." These are deprecations, not errors — the old keys still work — so report them as modernisation, not breakage.
 - **Fix:** Move `extensions` and `settings` under `customizations.vscode` verbatim; move `devPort` to `customizations.vscode.devPort`. The same namespace now also holds `mcp`, described in that schema as "Model Context Protocol server configurations" — put Model Context Protocol server configuration there rather than inventing a top-level key. Replace `appPort` with `forwardPorts` unless you specifically need the port *published* on all interfaces rather than forwarded, in which case keep `appPort` and say why. Remember `customizations` is an open namespace: the schema only says each tool "should use a JSON object subproperty with a unique name", so an unknown key under it is not necessarily wrong.
 
 ### DC-CLAUDE-001 · Claude Code in a dev container needs a non-root `remoteUser`, and persistent auth needs both a volume at `~/.claude` and `CLAUDE_CONFIG_DIR` pointed at it, because the account file lives outside that directory.
