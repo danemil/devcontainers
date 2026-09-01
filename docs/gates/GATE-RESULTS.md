@@ -318,6 +318,75 @@ CARRIED CAVEATS, none of which the decision rests on:
   (`chown`/`chmod`/`sudo`). A model correctly declined `git config safe.directory` against it. The
   outcome was right and the reasoning was sound, but the enumeration may be under-inclusive.
 
+
+### Gate E round 3 — the full re-run at corpus 0.3.0
+STATUS: RUN 2026-09-01 — **PASS. The package holds at 0.3.0.** Detail: `usefulness/results.md`.
+
+48 runs of 48 attempted, all exit 0, contamination 0/48. Twelve tasks (the ten original with T08b
+replacing the voided T08, plus the T11/T12 probes) x 2 surfaces x 2 arms. Skills offered, recorded
+for comparability: claude 328, copilot 149.
+
+**This is the first evaluation of the package as it actually ships.** Rounds 1 and 2 both ran with
+`references/spec-facts.md` ABSENT, firing the degradation clauses throughout. It exists now, and
+no degradation clause fired in any run.
+
+| Number | r1 (0.1.0) | r2 (0.2.0) | **r3 (0.3.0)** |
+|---|---|---|---|
+| firing, claude | 10/10 | 5/5 | **12/12 = 100%** |
+| firing, copilot | 8/10 = 80% | 5/5 | **8/12 = 66.7%** |
+| lift | 6/10 | (subset) | **4/12 = 3.3/10 normalised, all attributable** |
+| HARM | 1 | 0 | **0** |
+| false positives among finding lines | 4/16 = 25% | 0/9 | **1/18 = 5.6%**, self-caveated |
+
+DECISION: lift >= 3 of 10 AND harm = 0. Both hold. The round-1 T02 regression stays fixed, and
+there was **no `DC-SEC-001` or `DC-USER-001` false positive in 48 runs**.
+
+NEITHER FEARED 0.3.0 REGRESSION OCCURRED. Opening `DC-USER-001`'s enumeration did not make it
+over-fire — it fired on exactly one config, T12, the only one carrying the evidence its `Detect`
+requires, and cited the new `safe.directory` exclusion by name. `spec-facts.md` existing made
+AUTHOR and DEBUG mildly longer but they asserted nothing they should have routed.
+
+## THE AVAILABILITY CONJUNCT STILL SHORT-CIRCUITS ON COPILOT — the prose fix did not work
+This was the second recorded debt, folded into the same runs. Across 15 AUDIT runs in the WITH arm:
+- **claude**: performed the procedural step 9/9, and put nothing unread into "checked, no finding".
+- **copilot**: **0/6 on the procedure**, and **4 of 6 filed rules into "checked, no finding" whose
+  inputs it had not read** — two of them the exact Feature-rule case Task 10 first saw.
+
+The decisive evidence is a matched pair on T08b — same fixture, same corpus, same prompt: claude
+put `DC-FEAT-002` in *not checked* ("github-cli Feature not vendored"); copilot put it in
+*checked, no finding* without opening the Feature.
+
+The fix for this was prose, and its author wrote at the time: "What I can't claim: that this
+changes Copilot's behaviour." It did not. **The next lever is mechanical, not more prose.** This is
+now measured rather than suspected, on 15 runs, with a matched pair isolating the surface as the
+variable.
+
+## COPILOT SELECTION IS NOW THE GATE'S WEAKEST NUMBER
+66.7% is the lowest firing rate of any round (r1 80%, r2 100%), and one of the four misses was
+**T12 — a probe the skill exists to answer.** The decision rule's "the problem is selection, not
+the corpus" branch was written for exactly this shape, even though the rule itself gates on lift
+and harm rather than on firing. Worth treating as the leading indicator it is.
+
+## A NEW CONTAMINATION VECTOR, CREATED BY PUBLISHING THE REPOSITORY
+Rounds 1 and 2 ran while this repository was private. It is now public, which means a model in the
+**control** arm can reach `RESEARCH-BRIEF.md`, the cached sources and every gate result over the
+network — the exact contamination the /tmp scratch-repo ruling exists to prevent, arriving by a
+path that ruling does not cover. Round 3 mitigated it by passing `--disable-builtin-mcps` to
+copilot in **both** arms. **Any future Gate E run must do the same or an equivalent**, and must say
+which. A control that can search the web for this repository is not a control.
+
+## CARRIED CAVEATS
+- **The T08b clean-config fixture was defective again** — it forwarded 5432 with no database
+  service — which is two rounds out of three. Excluded from grading on both arms per round 2's
+  precedent; the lift direction is unchanged under the strict reading. The standing finding holds:
+  a "nothing to find" fixture is near-unconstructible for an agent with repo-wide shell access.
+- **T04's claude WITHOUT grade is the most contestable** — it names `userEnvProbe: "none"` and then
+  denies it is the cause. Graded PARTIAL against the pre-written label. Nothing was re-labelled;
+  recorded as a possible label defect for a future round.
+- VS Code agent mode remains NOT RUN in all three rounds, and the `.github/instructions/` pointer
+  is still untested.
+- Every per-task cell is n=1.
+
 ## DECISIONS
 Phase 1 SHIPS only if Gate E shows lift on >= 3 of 10 tasks with zero harm cases.
   **Lift 1-2 => the problem is selection, not rules. Rewrite the description. Do not add rules.**

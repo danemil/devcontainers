@@ -19,13 +19,15 @@ generator, no build step and no per-host fork. The whole shipped product is one 
 plus `.github/instructions/devcontainers.instructions.md`, a contentless pointer whose
 mechanism is **unproven** — see below.
 
-**Status: Phase 1 ships.** That is a decision record, not a mood: it is what Gate E's
-measured lift and zero harm cases entitle us to say. **Read the version carefully, because
-the two are no longer the same number.** Gate E passed against corpus **`0.2.0`**; the corpus
-now ships **`0.3.0`**, and the outstanding evaluation debt that creates is stated under
-Maintenance rather than glossed. The authoritative corpus version is the one `references/rules.md`
-declares — this file is not a third source of truth for it. Everything below distinguishes
-what was measured from what was assumed. Where a thing is unproven, this file says so.
+**Status: Phase 1 ships, and the package has been evaluated as it actually ships.** That is a
+decision record, not a mood: Gate E was re-run in full against the current corpus — 48 runs,
+lift met, **harm 0** — and rounds 1 and 2 had both run with `references/spec-facts.md` absent,
+so this is the first evaluation of the shipped article rather than of a degraded one. The
+authoritative corpus version is the one `references/rules.md` declares; this file is not a
+third source of truth for it. Everything below distinguishes what was measured from what was
+assumed. Where a thing is unproven, this file says so — and two things still are: Copilot's
+selection rate is the gate's weakest number, and one design assumption was measured and
+**failed**. Both are stated under Gate E rather than left to a reader to notice.
 
 ---
 
@@ -428,7 +430,7 @@ claims only what was observed.
 | **B** | can Copilot resolve `references/` from `.claude/skills/`? | **PASS** (Copilot CLI **1.0.81** + Claude Code control) | `references/` depth is affordable — the twelve rules stay out of the `SKILL.md` body |
 | **C** | can Copilot code review shell out? | selection reaches, **execution FAILS** | on that surface the skill is prose-only |
 | **D** | false-positive and recall rate on real configs | **STARTED, DEFERRED before completion** — harvest search phase done, content fetch failed, corpus empty | severities are uncalibrated; Phase 2 is not unblocked |
-| **E** | blinded usefulness — firing, lift, harm | **PASS at corpus 0.2.0** — the corpus has since moved to `0.3.0` | Phase 1 ships; a full-set re-run is an outstanding debt (see Maintenance) |
+| **E** | blinded usefulness — firing, lift, harm | **PASS at corpus `0.3.0`**, full twelve-task re-run, 48 runs, harm 0 | Phase 1 ships; the evaluation debt is discharged. Copilot selection (66.7%) is the open number |
 
 **Gate B — what rides with the PASS.** It was measured on **Copilot CLI 1.0.81**, carried
 forward and *not* re-measured in the 1.0.82 run that produced Gate A's addendum — record the
@@ -481,18 +483,47 @@ prescribes. Systematically, 4 of 16 emitted finding lines (25%) were false posit
 from two rules. Two `Detect` fields were narrowed and the gate re-run (20 runs, corpus
 `0.2.0`).
 
-**Read the table by its denominators, because the two rounds did not measure the same thing.**
-Round 1 ran ten tasks on each surface; round 2 re-ran a **five-task subset** (T02, T03, T08b,
-T11, T12), two of them probes added specifically to carry the case each narrowing was most at
-risk of losing. The firing-rate row in particular is not a like-for-like comparison, and the
-round-2 cell must not be read as a ten-task clean sweep — it was five tasks per surface.
+**Read the table by its denominators, because the three rounds did not measure the same
+thing.** Round 1 ran ten tasks on each surface. Round 2 re-ran a **five-task subset** (T02,
+T03, T08b, T11, T12), two of them probes added to carry the case each narrowing was most at
+risk of losing — its cell is not a ten-task sweep. Round 3 is the full set: **twelve tasks ×
+two surfaces × two arms, 48 runs of 48 attempted, contamination 0 of 48.**
 
-| | Round 1 (0.1.0) | Round 2 (0.2.0) |
-| --- | --- | --- |
-| harm cases | 1 | **0** |
-| false positives among finding lines | 4 of 16 (25%) | **0 of 9** |
-| true positives lost to the narrowing | n/a | **none — measured, not inferred** |
-| firing rate | 10/10 claude, 8/10 copilot (10 tasks each) | **5/5 on each surface — 10/10 combined, over 5 tasks** |
+| | Round 1 (0.1.0) | Round 2 (0.2.0) | **Round 3 (0.3.0)** |
+| --- | --- | --- | --- |
+| scope | 10 tasks | 5-task subset | **12 tasks, 48 runs** |
+| harm cases | 1 | 0 | **0** |
+| false positives among finding lines | 4 of 16 (25%) | 0 of 9 | **1 of 18 (5.6%), self-caveated** |
+| lift | 6 of 10 | (subset) | **4 of 12 — 3.3/10 normalised, all four attributable** |
+| firing, claude | 10/10 | 5/5 | **12/12 = 100%** |
+| firing, copilot | 8/10 = 80% | 5/5 | **8/12 = 66.7%** |
+
+**Round 3 is the first evaluation of the package as it actually ships.** Rounds 1 and 2 both
+ran with `references/spec-facts.md` absent, firing the degradation clauses throughout; it
+exists now and **no degradation clause fired in any round-3 run**. Neither feared `0.3.0`
+regression occurred: opening `DC-USER-001`'s enumeration did not make it over-fire — it fired
+on exactly one config, the only one carrying the evidence its `Detect` requires, and cited the
+new `safe.directory` exclusion by name. There was **no `DC-SEC-001` or `DC-USER-001` false
+positive in 48 runs.**
+
+**The open number is Copilot selection, and it is the leading indicator.** 66.7% is the lowest
+firing rate of any round, and one of the four misses was **T12 — a probe the skill exists to
+answer.** The decision rule gates on lift and harm rather than on firing, so this does not fail
+the gate; it is exactly the shape the rule's "the problem is selection, not the corpus" branch
+was written for, and it should be read as a warning rather than as noise.
+
+**One design assumption was measured and failed: the availability conjunct short-circuits on
+Copilot.** AUDIT's "checked, no finding" bucket requires that you actually read every input the
+rule's `Detect` names. Across 15 AUDIT runs in the WITH arm, `claude` performed that step 9/9
+and filed nothing unread; **`copilot` scored 0/6 on the procedure, and 4 of 6 filed rules into
+"checked, no finding" whose inputs it had not read.** The decisive evidence is a matched pair
+on T08b — same fixture, same corpus, same prompt — where `claude` put `DC-FEAT-002` in *not
+checked* and `copilot` put it in *checked, no finding* without opening the Feature. The
+previous attempt to fix this was prose, and its author wrote at the time that they could not
+claim it would change Copilot's behaviour. It did not. **This is now measured rather than
+suspected, and the next lever is mechanical rather than more prose.** Until then, treat a
+Copilot AUDIT's "checked, no finding" bucket as unreliable — which is precisely the failure
+mode this package exists to prevent, appearing in the package's own output.
 
 Two findings the lift number does not capture, and they shape how this package should be
 read. **Zero confidently wrong answers in the WITH arm; three in the WITHOUT arm** — a
@@ -500,8 +531,12 @@ confident wrong answer is worse than a miss. And **the lift concentrates where t
 cannot execute**: on `claude -p` the base model plus a shell already scores 8/10, and the
 skill's only win there is a GitHub-side fact no amount of shelling out reaches.
 
-Carried caveats: every per-task cell is n=1, control variance is real and moved in both
-directions between rounds, and **VS Code agent mode is unmeasured in both rounds.**
+Carried caveats, and the pass does not rest on waving any of them away: **every per-task cell
+is n=1**; control variance is real and has moved in both directions between rounds; **the T08b
+clean-config fixture was defective for the second time in three rounds** (excluded from grading
+on both arms, lift direction unchanged under the strict reading), which keeps alive the
+standing finding that a "nothing to find" fixture is near-unconstructible for an agent with
+repo-wide shell access; and **VS Code agent mode is unmeasured in all three rounds.**
 
 ---
 
@@ -518,8 +553,9 @@ cannot drift. Adding a rule to it is a review-blocking change.
 - **Not documented, and not measured:** that an instructions file saying "consult the X
   skill" actually causes the skill to be invoked.
 - The evaluation was folded into Gate E. That arm needs VS Code's silent inline-edit
-  surface, there is no GUI automation in this project, and it was **NOT RUN** in either
-  round. The file ships on a documented-mechanism argument alone.
+  surface, there is no GUI automation in this project, and it was **NOT RUN** in any of the
+  three rounds — including the full re-run at `0.3.0`. The file ships on a documented-mechanism
+  argument alone.
 
 The rule attached to it — **delete it if it changes nothing**, because an inert artifact
 with a maintenance rule attached is worse than no artifact — **cannot be applied yet.**
@@ -616,6 +652,22 @@ reliably on its own is **suppressed from the prose prompt (`prompt_include: fals
 deleted from the corpus** — a deleted ID would silently un-suppress if the ID were ever
 re-issued, which is exactly why IDs are never re-issued.
 
+### Every Gate E run must disable network-reachable tooling, in **both** arms
+
+**This constraint is a durable consequence of publishing this repository, and it did not exist
+when the first two rounds ran.** Rounds 1 and 2 were measured while the repository was private.
+It is public now, so a model in the **control** arm can reach `docs/RESEARCH-BRIEF.md`, the
+cached primary sources and every gate result **over the network** — the exact contamination the
+run-in-a-scratch-repo rule exists to prevent, arriving by a path that rule does not cover. **A
+control that can search the web for this repository is not a control**; it can answer every task
+from the research and produce a spurious zero lift, or a spurious pass.
+
+Round 3 mitigated it by passing `--disable-builtin-mcps` to `copilot` in **both** arms, and
+recorded contamination as 0 of 48. **Any future run must do the same or an equivalent, and must
+state which** — naming the mitigation is half the requirement, because a run that was clean and
+cannot say why is not reusable evidence. The same applies to the unaided quarterly re-run below:
+"unaided" now has to mean network-unaided, not merely skill-unaided.
+
 **Re-running the citation checkers is not sufficient maintenance.** They verify the corpus
 is still TRUE. Gate E is the only instrument that tests the executing half — whether the
 corpus is still SAFE TO FOLLOW, and whether it is still worth loading at all now that the
@@ -627,29 +679,29 @@ it did.
 A version bump also obliges a re-generation of `upstream/`, which is a projection of the
 corpus with no checker behind it — see the section above.
 
-### Outstanding evaluation debt, as of corpus `0.3.0`
+### Evaluation state, as of corpus `0.3.0`
 
-Stated rather than left for a reader to infer from a version number that looks freshly
-validated:
+This section used to list two outstanding debts. **Both are closed, and one of them closed
+negatively** — which is the more useful of the two outcomes to record.
 
-- **The corpus is at `0.3.0`. The last *full ten-task* Gate E run was against `0.1.0`** —
-  round 1. No full-set evaluation has run against any later corpus.
-- **The only evaluation at `0.2.0` was round 2, and it re-ran five of ten tasks** (T02, T03, T08b,
-  T11, T12). It genuinely evaluated both of the `0.1.0` → `0.2.0` narrowings — 20 runs,
-  including two probes built specifically to catch a lost true positive, and none was lost.
-  What has never run against a post-`0.1.0` corpus is **the other five tasks**.
-- **`0.2.0` → `0.3.0` has not been evaluated at all.** It opened `DC-USER-001`'s ownership
-  enumeration and excluded one case from it — a `Detect` change that alters what fires in both
-  directions, which is precisely the class the SAFE-TO-FOLLOW half exists for.
-- **`upstream/` is *not* part of this debt.** It was regenerated with the bump and
-  `upstream/.generated-from` declares the current corpus version — check the sidecar rather
-  than this sentence.
+- **DISCHARGED — the full re-run.** Gate E ran in full against `0.3.0`: 48 runs of 48
+  attempted, twelve tasks × two surfaces × two arms, contamination 0 of 48. Lift 4 of 12 (3.3
+  of 10 normalised, all four attributable) with **harm 0**, and false positives among emitted
+  finding lines down to 1 of 18 from 25% at `0.1.0`. **The package holds at `0.3.0`**, and the
+  cascade a version bump triggers has been paid rather than deferred.
+- **CLOSED, AND THE ANSWER IS NO — the availability conjunct on Copilot.** The second debt was
+  a suspicion that a prose fix had not changed Copilot's bucket discipline. It is now a measured
+  finding on 15 AUDIT runs with a matched pair isolating the surface: `claude` 9/9 on the
+  procedure, `copilot` 0/6, with 4 of 6 filing unread rules into "checked, no finding". See
+  Gate E above. **A closed debt is not the same as a solved problem, and the next lever is
+  mechanical rather than more prose.**
+- **`upstream/` was never part of this.** It was regenerated with the bump, and
+  `upstream/.generated-from` declares the corpus version — check the sidecar rather than this
+  sentence.
 
-**The obligation this adds up to: a full ten-task Gate E re-run at `0.3.0`, before the
-upstream PR is opened.** That is an acknowledged debt, not completed work. This is the cascade
-a version bump triggers under the rule two paragraphs above; it was
-predicted, it was accepted as the price of a correct corpus edit, and reverting correct work to
-protect a version number would have been the wrong trade.
+**What remains open is not a debt but a number: Copilot's 66.7% firing rate**, the lowest of
+any round, with one miss on a probe the skill exists to answer. It does not fail the gate. It
+is the thing to watch.
 
 ---
 
