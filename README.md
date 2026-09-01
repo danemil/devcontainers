@@ -266,7 +266,7 @@ grep -nE '^\s*!`|```!|\$ARGUMENTS|\$\{CLAUDE_' \
 # 2. Rule-field counting — every field must print 12.
 R=.claude/skills/devcontainers/references/rules.md
 awk '/^```/{f=!f; next} !f' "$R" | grep -c '^### DC-'
-for fld in Severity Tier Source Quote Verified Detect Fix; do
+for fld in Severity Tier Source Quote Verified Inputs Detect Fix; do
   printf '%-9s %s\n' "$fld" \
     "$(awk '/^```/{f=!f; next} !f' "$R" | grep -c "^- \*\*$fld:\*\*")"
 done
