@@ -1,6 +1,6 @@
 # Dev container rules
 
-corpus_version: 0.2.0
+corpus_version: 0.3.0
 
 This line is the authoritative corpus version. An audit report that stamps a version reads it
 from here, not from the skill file; if the two disagree, this file wins.
@@ -93,8 +93,8 @@ that scope explicitly. Treat its ERROR severity as a hypothesis, not a finding.
 
 ## A note on shelling out
 
-None of `devcontainer`, `hadolint`, `trivy`, `dockle` or `docker scout` can be assumed
-present. Every shell snippet below probes with `command -v` first and degrades to a message.
+None of `devcontainer`, `hadolint`, `trivy`, `dockle`, `docker scout` or `decolint` can be
+assumed present. Every shell snippet below probes with `command -v` first and degrades to a message.
 
 **No rule requires running a tool.** Nine of the twelve read `devcontainer.json` and nothing
 else. Three read one file more: `DC-FEAT-001` needs each referenced Feature's
@@ -110,16 +110,35 @@ value **present** in the file wins that merge and can be relied on; a value **ab
 file may still be supplied by the label, and the file alone cannot tell you that it was. Say
 what the file states, and say where the label could still change it.
 
-Three rules — `DC-DEP-001`, `DC-FEAT-001` and `DC-FEAT-002` — read only properties the label
-never carries. The test is mechanical rather than a judgement: their inputs are top-level
-`extensions`, `settings`, `devPort` and `appPort` (`DC-DEP-001`); `features` and
-`overrideFeatureInstallOrder` (`DC-FEAT-001`); and the image reference plus `features`
-(`DC-FEAT-002`) — and not one of those names appears on either property list in the spec's
-image-metadata document, the one for `devcontainer.json` config or the one for Feature
-metadata. `DC-DEP-001` is the cleanest of the three, because its inputs are also the whole of
-what it reasons about. For the two `DC-FEAT` rules the immunity stops at the inputs: what they
-reason about is dependency resolution, whose *outcome* is frozen onto the label at first
-creation — which is `DC-FEAT-002`'s own subject.
+**Label-immunity is read off a positive marker, never inferred from absence.** The
+containers.dev property reference tags every storable property: "Metadata properties marked
+with a 🏷️ can be stored in the `devcontainer.metadata` **container image label** in addition to
+`devcontainer.json`." A property row *without* the tag is attested as not storable. A property
+with **no row at all** is a property the source is silent about — and silence is not immunity.
+Do not derive immunity by subtracting one list from another; both enumerations in the spec's
+image-metadata document declare themselves open ("We can add to these lists as we add more
+properties"), and a complement of an open list is not a fact.
+
+Read that way, two rules are fully attested and one is not:
+
+- `DC-FEAT-001` reads `features` and `overrideFeatureInstallOrder`; both have untagged rows in
+  the reference, so both are attested not storable.
+- `DC-FEAT-002` reads the image reference and `features`; both have untagged rows, likewise
+  attested.
+- `DC-DEP-001` reads top-level `extensions`, `settings`, `devPort` and `appPort`. Only
+  **`appPort`** has a row, untagged, and is attested. The other three are VS Code schema
+  properties with **no row in the property reference at all** — the source attests nothing
+  about them in either direction, so do not call them label-immune.
+
+`DC-DEP-001` has been the tidy example for this bucket and that was overstated: it is attested
+for one input of four. What saves it in practice is not immunity but direction — it reports
+only keys it can *see* in the configuration, and a value present in the file wins the merge, so
+the unattested three can cost it a missed finding and can never produce a false one. State it
+that way rather than as immunity.
+
+For the two `DC-FEAT` rules the attestation stops at the inputs: what they reason about is
+dependency resolution, whose *outcome* is frozen onto the label at first creation — which is
+`DC-FEAT-002`'s own subject.
 
 The other nine each read at least one property the label can contribute: the lifecycle
 commands, `waitFor`, `remoteEnv`, `containerEnv`, `mounts`, `remoteUser`, `containerUser`,
@@ -223,7 +242,7 @@ read-only. `devcontainer features resolve-dependencies` is a read-only query and
 - **Source:** https://containers.dev/implementors/json_reference/
 - **Quote:** "On Linux, if `containerUser` or `remoteUser` is specified, the user's UID/GID will be updated to match the local user's UID/GID to avoid permission problems with bind mounts. Defaults to `true`."
 - **Verified:** 2026-09-01
-- **Detect:** **An absent `updateRemoteUserUID` is not a defect and must not be reported as one.** It defaults to true, and on a Linux workstation that default is exactly what keeps bind-mounted files writable — the behaviour the `Fix` below tells you to keep. A config that sets `remoteUser` or `containerUser` and leaves `updateRemoteUserUID` unset is the ordinary, correct case: emit nothing for it. The default costs something in only two situations, and one of them must be visible in the repository before this rule has anything to report. (1) **The pipeline names an image the build does not produce.** With the default in effect on Linux the reference CLI derives a second image, in `src/spec-node/containerFeatures.ts`, as ``const fixedImageName = `${imageName.startsWith(folderImageName) ? imageName : folderImageName}-uid`;`` — so a workflow that pins, tags, publishes or scans a specific `--image-name` is not operating on the image that actually runs. Report only on evidence of such a workflow: a CI invocation passing `--image-name`, a `devcontainers/ci` step setting `imageName` or `push`, or a documented prebuilt image tag. (2) **A Linux-only ownership problem is being masked.** The step does not apply on macOS or Windows hosts, so an ownership workaround that makes permissions look right on a Mac may be hiding behaviour that differs on Linux. Report only when such a workaround is actually present — a `chown`, `chmod` or `sudo` ownership step in a lifecycle command. If neither symptom is present this rule is informational: it explains a default, and a default being in effect is not a finding.
+- **Detect:** **An absent `updateRemoteUserUID` is not a defect and must not be reported as one.** It defaults to true, and on a Linux workstation that default is exactly what keeps bind-mounted files writable — the behaviour the `Fix` below tells you to keep. A config that sets `remoteUser` or `containerUser` and leaves `updateRemoteUserUID` unset is the ordinary, correct case: emit nothing for it. The default costs something in only two situations, and one of them must be visible in the repository before this rule has anything to report. (1) **The pipeline names an image the build does not produce.** With the default in effect on Linux the reference CLI derives a second image, in `src/spec-node/containerFeatures.ts`, as ``const fixedImageName = `${imageName.startsWith(folderImageName) ? imageName : folderImageName}-uid`;`` — so a workflow that pins, tags, publishes or scans a specific `--image-name` is not operating on the image that actually runs. Report only on evidence of such a workflow: a CI invocation passing `--image-name`, a `devcontainers/ci` step setting `imageName` or `push`, or a documented prebuilt image tag. (2) **A Linux-only ownership problem is being masked.** The step does not apply on macOS or Windows hosts, so an ownership workaround that makes permissions look right on a Mac may be hiding behaviour that differs on Linux. Report only when such a workaround is actually present. The forms below are examples, not an exhaustive list — read for the intent, which is a step that exists to correct file ownership or permissions: a `chown` or `chmod`, a `sudo` ownership step, an `install -o`, a `setfacl`, or a script whose name says as much. Steps that merely work *around* an ownership mismatch without changing ownership — `git config --global --add safe.directory`, for instance — are not this symptom and are not a finding. If neither symptom is present this rule is informational: it explains a default, and a default being in effect is not a finding.
 - **Fix:** In CI, where the host UID is irrelevant and the extra build is pure cost, turn it off: the `devcontainers/ci` action exposes `skipContainerUserIdUpdate`, documented as "For non-root Dev Containers (i.e. where `remoteUser` is specified), the action attempts to make the container user UID and GID match those of the host user. Set this to true to skip this step". The CLI equivalent is `--update-remote-user-uid-default never`. Locally on Linux, leave it on — it is what keeps bind-mounted files writable. Set `"updateRemoteUserUID": false` in the config only when you intend the container UID to stay fixed everywhere.
 
 ### DC-ENV-001 · `userEnvProbe` decides which shell startup files contribute to the lifecycle environment, which is why a command that works in the container terminal can fail in `postCreateCommand`.

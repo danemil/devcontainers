@@ -3,7 +3,7 @@ name: devcontainers
 description: Use when creating, editing, reviewing, validating or debugging a devcontainer.json, .devcontainer/ directory or Dev Container Feature, or when a containerised dev environment behaves differently from the host, fails to build, or is slow to start. Covers the containers.dev specification, Features, lifecycle commands, Codespaces prebuilds, and the tools that support them. Does not cover Dev Container Template authoring.
 license: MIT
 metadata:
-  corpus_version: "0.2.0"
+  corpus_version: "0.3.0"
   spec_verified: "2026-08-31"
 ---
 
@@ -25,10 +25,10 @@ Load the reference file the mode names. Do not load both up front; DEBUG may ope
 on demand when a specific rule turns out to be implicated.
 
 **Whenever you cite a rule ID — in any mode, in prose or in a table — print its tier with it**
-in the shape `DC-XXX-NNN [TIER]`, read from that rule's `Tier` field and never from here.
-The tag is the only thing stopping an `OPINION` being read as specification, and a bare ID
-quoted out of a DEBUG or AUTHOR answer carries no such warning. If you could not open the
-corpus, say the tier is unknown rather than dropping it.
+in the shape `DC-XXX-NNN [TIER]`, read from that rule's `Tier` field and never from here. The
+tag is the only thing stopping an `OPINION` being read as specification, and a bare ID quoted
+out of a DEBUG or AUTHOR answer carries no such warning. If you could not open the corpus, say
+the tier is unknown rather than dropping it.
 
 **Never descend into `customizations.*` when checking for unknown properties, in any mode.**
 That namespace is deliberately open — no registry, no schema constraint, any tool may claim a
@@ -64,10 +64,9 @@ command -v docker >/dev/null 2>&1 && docker scout version >/dev/null 2>&1 \
   && echo "available: docker scout" || echo "not available: docker scout"
 ```
 
-A tool being absent is a normal outcome, not a blocker: report it and continue. Never install
-one, and never suggest installing one as a prerequisite for answering. **Report the result in
-every mode** — AUDIT prints the formal block below, but a DEBUG or AUTHOR answer still owes the
-reader an explicit list of what was not checked.
+A tool being absent is normal, not a blocker: report it and continue. Never install one, nor
+suggest it as a prerequisite. **Report the result in every mode** — AUDIT prints the formal
+block below, but DEBUG and AUTHOR still owe the reader a list of what was not checked.
 
 **If the surface you are running on cannot execute commands at all** — some review surfaces
 cannot — do not write as though a command ran. Treat every tool as not available, analyse by
@@ -118,9 +117,9 @@ These hold in every mode.
 5. **Will not run `devcontainer up` or `docker build` without explicit confirmation.**
 6. **Will not rewrite a working config to match a style preference.**
 
-On refusal 3: the failure mode is a reader seeing no complaint about image vulnerabilities and
-concluding the image is clean. Never write a summary line — "no security issues", "looks good",
-"all clear" — covering an area you did not check.
+On refusal 3: a reader sees no complaint about image vulnerabilities and concludes it is clean.
+Never write a summary line — "no security issues", "looks good", "all clear" — over an area you
+did not check.
 
 ---
 
@@ -130,8 +129,7 @@ Read and report. **Do not edit any file in this mode.**
 
 **Load `references/rules.md` now.** The twelve rules, their severities, tiers, sources,
 `Detect` and `Fix` live there and nowhere else. Never restate one from memory — open the file.
-If it cannot be read, say so and stop: an audit from a remembered corpus is worse than no
-audit.
+If it cannot be read, say so and stop: an audit from memory is worse than no audit.
 
 ### Procedure
 
@@ -154,7 +152,7 @@ devcontainers · AUDIT · .devcontainer/devcontainer.json · rules corpus <versi
 ```
 
 Take the corpus version from `references/rules.md` if it carries one, else omit it. Never print
-this file's own `corpus_version` as the corpus's — nothing keeps them in step.
+this file's `corpus_version` as the corpus's — nothing keeps them in step.
 
 Every finding line carries the rule ID and the tier tag. No exceptions. The shape:
 
@@ -185,8 +183,8 @@ rule silently missing is the same failure as "not checked" reading as "passed".
 | **not applicable** | the rule's own `Detect` scopes it out of this config |
 
 Evaluate the rows in order **4, 1, 2, 3** — scope out, what fired, what you were entitled to
-call clean, then everything left. Row 2 needs both conjuncts: a rule whose inputs you never
-read is not clean, however label-immune its properties.
+call clean, then the rest. Row 2 needs both conjuncts: a rule whose inputs you never read is
+not clean, however label-immune its properties.
 
 Why the two middle rows differ. For every property these twelve rules read, `devcontainer.json`
 "is considered last" when the order matters (`image-metadata.md`), so a value present in the file
@@ -196,8 +194,8 @@ these rules' properties, not a law of the merge system; a few merge the other wa
 audit can soundly report what it found, not that it is clean.**
 
 Working a row needs the `Detect`, the config, and whether each property it names is
-label-storable — the twelve-item list under "My changes aren't taking effect" is the in-file
-source for that last input. A compound `Detect` is only as sound as its weakest conjunct.
+label-storable — the not-label-storable list under "My changes aren't taking effect" is the
+in-file source for that. A compound `Detect` is only as sound as its weakest conjunct.
 
 **Not applicable** needs the `Detect`'s own scope clause — a rule limited to configs installing a
 particular tool, applied to one that does not; a Feature-authoring rule, applied to a repo that
@@ -212,21 +210,24 @@ Print this every time, even when every line is "not checked":
 not checked   JSON Schema conformance     no validator run — the CLI ships none, SchemaStore is editor-only
 not checked   Dockerfile lint             hadolint not available
 not checked   image vulnerabilities       trivy not available
+not checked   image supply chain          docker scout available but NOT RUN — image not pulled
 not checked   image configuration         dockle not available
 not checked   devcontainer.json lint      decolint not available
 not checked   resolved Feature order      devcontainer CLI not available
 not checked   base image metadata         image not pulled
 ```
 
-Adjust each line to what the probe found. If a tool was available **and did run**, move it out
-of this block and report its result instead.
+Adjust each line to what the probe found. Every probed tool is in exactly one of three states
+and each has a required outcome: **not installed** — keep the line, give that as the reason;
+**installed but not run** — keep the line and say so in those words, the state most easily
+misread as a pass; **run** — move it out of this block and report its result. Never drop a row
+because a tool turned out to be present.
 
 ### The tally
 
 Close with all four buckets, reconciled to twelve. A worked example, for a repo with no
 devcontainer CLI available, no Features vendored, the base image not pulled, no Feature
-authoring of its own, no Claude Code in the config, and nothing establishing whether it uses
-prebuilds:
+authoring of its own, no Claude Code in the config, and nothing establishing prebuild use:
 
 ```
 findings:             2   DC-SEC-001, DC-DEP-001
@@ -252,12 +253,13 @@ plus the non-rule areas in the not-checked block above.
 
 That is a thin audit and it is the honest one for those inputs — pulling the image or running
 the CLI is what moves rules out of "not checked", and an empty no-finding bucket is a result,
-not a malfunction. Note that two of the eight failed on the *first* conjunct, not the label:
-a rule can be entirely label-immune and still not be checked. `DC-DEP-001` is the clean case: every property its `Detect`
-reads is label-immune **and** was readable here, so it is sound in both directions — had it not
-fired it would have been a legitimate "checked, no finding" entry. Label-immunity alone is not
-enough: `DC-FEAT-001` and `DC-FEAT-002` read only label-immune properties too and are still not
-checked, because row 2's first conjunct fails — their inputs were never read. Every placement
+not a malfunction. Two of the eight failed on the *first* conjunct, not the label: `DC-FEAT-001`
+and `DC-FEAT-002` read only attested-immune properties and are still not checked, because their
+inputs were never read. `DC-DEP-001` is a finding for a different reason, and it is the one that
+generalises — it reports only keys it can *see* in the file, and a value present in the file wins
+the merge, so what it cannot see can cost it a missed finding and can never produce a false one.
+That direction argument holds for every rule that fires on presence, and it does not make the
+rule label-immune: three of its four inputs have no row in the source at all. Every placement
 follows from the scenario plus the rule's own `Detect`; re-derive rather than copy. What does not
 vary is the reconciliation: twelve, every time. Never merge the buckets, never let a
 green-sounding sentence stand in for any, and never drop an unplaceable rule from the report.
@@ -300,8 +302,7 @@ flag exists, without a source you can point at — the spec is at
   `DC-DEP-001`; named volumes and workspace mounts → `DC-PERF-001`; Feature install order →
   `DC-FEAT-001`; Feature idempotence and rebuilds → `DC-FEAT-002`; writing a Feature's
   `install.sh` → `DC-FEAT-003`; Claude Code in the container → `DC-CLAUDE-001`.
-- **Label every non-spec recommendation `[OPINION]` inline**, at the point of it, not in a
-  footnote.
+- **Label every non-spec recommendation `[OPINION]` inline**, not in a footnote.
 
 ### After writing
 
@@ -342,17 +343,15 @@ hand over a config that would produce a finding without saying so.
 
 ## DEBUG
 
-Symptom-keyed. Match what the user typed to a heading, work the list in order, and stop at
-the first cause that explains the observed behaviour. Load `references/spec-facts.md` for the
-mechanics; open `references/rules.md` on demand when a specific rule turns out to be
-implicated.
+Symptom-keyed. Match what the user typed to a heading, work the list in order, and stop at the
+first cause that explains the behaviour.
 
-**If a reference file cannot be read, say so and keep going** — the symptom lists stand on their
-own, except the Codespaces divergences, which live in `spec-facts.md`: without it, say you cannot
-enumerate them rather than guessing. Without `spec-facts.md`, do not assert a default, an enum, a merge rule or a CLI flag from
-memory. Without `rules.md`, you still have the observable and the mechanism: give those, then say
-plainly that the rule's normative half — what is wrong and what to change — is unavailable here,
-and name the ID to look up. An honest dead end is the correct output; an invented answer is not.
+**If a reference file cannot be read, say so and keep going** — the symptom lists stand on
+their own, except the Codespaces divergences, which live in `spec-facts.md`: without it, say
+you cannot enumerate them. Without `spec-facts.md`, do not assert a default, an enum, a merge
+rule or a CLI flag from memory. Without `rules.md`, you still have the observable and the
+mechanism: give those, then say plainly that the rule's normative half is unavailable, and name
+the ID to look up. An honest dead end is the correct output; an invented answer is not.
 
 The lists name an observable and route to a rule; they deliberately carry none of the rule's
 claim. Open the rule before asserting anything normative, or say that you could not.
@@ -435,10 +434,12 @@ ever did — read it before assuming a bug. Two items stay here because they rou
    from a prebuilt image does nothing. AUDIT's bucket table reads the list below and does not
    load `spec-facts.md`, so do not move it. Not label-storable: `initializeCommand`, `image`,
    `build.*`, `dockerComposeFile`, `service`, `runServices`, `appPort`, `runArgs`,
-   `workspaceMount`, `workspaceFolder`, `features`, `overrideFeatureInstallOrder`.
-   That is the set this package treats as never label-storable, derived from the spec's merge
-   table rather than its prose property list. **Absence from it is not proof a property is
-   storable**: for anything on neither side, read the merged configuration rather than infer.
+   `workspaceMount`, `workspaceFolder`, `features`, `overrideFeatureInstallOrder`, `name`.
+   Each has an untagged row in the spec's JSON reference, whose legend marks per property
+   whether it is recorded in the image label — positive attestation, not inference from
+   absence. **A property with no row at all is one the source is silent about, and silence is
+   not immunity**: for anything not listed here, read the merged configuration rather than
+   infer. Top-level `extensions`, `settings` and `devPort` are exactly that case.
    **`mounts` is not on that list — it does travel, and it merges** (collected, last source
    wins), so a `mounts` entry that appears not to apply is more likely being overridden than
    ignored. `references/spec-facts.md` carries the full merge table.
@@ -479,19 +480,19 @@ This is `DC-ENV-001` far more often than anything else. Start there.
   source URL, verbatim quote, verification date, `Detect` and `Fix`. The only place rule content
   lives; every mode cites IDs into it rather than restating it. Loaded in AUDIT.
 - `references/spec-facts.md` — the mechanics the rules refer to: lifecycle ordering and re-run
-  gating, prebuilds, Feature resolution and pinning, image metadata merge rules, Codespaces
-  divergences, performance, docker-in-docker, substitutions, the open `customizations`
-  namespace, the CLI surface. Loaded in AUTHOR and DEBUG.
+  gating, prebuilds, Feature resolution and pinning, image metadata merge, Codespaces
+  divergences, performance, docker-in-docker, substitutions, the CLI surface. Loaded in AUTHOR
+  and DEBUG.
 
 Each mode says what to do when a file it needs is missing — AUDIT stops, AUTHOR and DEBUG
-narrow. In all three: say it was unavailable, and never reconstruct it from memory as cited.
+narrow. In all three: say it was unavailable, never reconstruct it from memory as cited.
 
 **Editing note.** Moving content into a reference file the mode *already loads* is free only if
 the mode's degradation note stays true afterwards — DEBUG promises "the symptom lists stand on
 their own", which is false once a symptom list lives in `spec-facts.md`; amend the promise in the
 same edit. Moving content into a file the mode *does not load* is a correctness change wearing a
-budget change's clothes: the twelve-item list under "My changes aren't taking effect" is
-therefore **not movable** — AUDIT's bucket table depends on it and AUDIT does not load it.
+budget change's clothes: the not-label-storable list under "My changes aren't taking effect" is
+**not movable** — AUDIT's bucket table depends on it and AUDIT does not load it.
 
 **Out of scope: authoring Dev Container Templates.** No rule covers writing or publishing one;
 the entry points are the `devcontainer templates` subcommands and
