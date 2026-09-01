@@ -1,6 +1,6 @@
 ---
 description: 'Twelve sourced rules for reviewing and authoring devcontainer.json, Dev Container Features, and Codespaces lifecycle configuration. Every rule cites the Dev Container specification, the reference CLI source, or official vendor documentation, states the concrete fix, and needs only file reading rather than a command to run.'
-applyTo: '**/devcontainer.json, **/.devcontainer.json, **/.devcontainer/**, **/devcontainer-feature.json'
+applyTo: '**/devcontainer.json,**/.devcontainer.json,**/.devcontainer/**,**/devcontainer-feature.json'
 ---
 
 # Dev Container Configuration
@@ -17,9 +17,13 @@ At runtime, `devcontainer.json` is merged with the `devcontainer.metadata` label
 
 So a value **present** in the file wins that merge and can be relied on. A value **absent** from the file may still be supplied by the image label, and the file alone cannot tell you it was not. Say what the file states, and say where the label could still change it. Do not report the absence of a lifecycle command, `waitFor`, `remoteEnv`, `containerEnv`, `mounts`, `remoteUser`, `containerUser`, `updateRemoteUserUID` or `userEnvProbe` as proof that the behaviour is absent.
 
-The exceptions are properties the label never carries: top-level `extensions`, `settings`, `devPort`, `appPort`, `features` and `overrideFeatureInstallOrder`. Reasoning about those from the file alone is safe.
+**Where a property is exempt from that caution, read it off a positive marker — never infer it from absence.** The property reference tags each storable property: "Metadata properties marked with a 🏷️ can be stored in the `devcontainer.metadata` **container image label** in addition to `devcontainer.json`." An *untagged row* attests that a property is not label-storable. A property with **no row at all** is one the source is silent about, and silence is not immunity. Do not subtract one list from another to obtain immunity: the image-metadata document declares its own enumerations open — "We can add to these lists as we add more properties to the dev container configuration and the feature metadata." — and the complement of an open list is not a fact.
 
-Source: <https://containers.dev/implementors/spec/>
+Read that way, of the properties the rules below reason about, `features`, `overrideFeatureInstallOrder` and `appPort` have untagged rows and are attested not label-storable. Top-level `extensions`, `settings` and `devPort` are VS Code schema properties with no row in the reference at all: unattested in either direction, so do not call them label-immune.
+
+That costs the deprecated-properties rule below nothing, because what protects it is not immunity but **direction**. It reports only keys it can *see* in the configuration, and a value present in the file wins the merge — so the three unattested names can cost it a missed finding and can never produce a false one. That makes the finding sound; it does not make the rule label-immune, and the two are not the same thing. Apply the same test to every rule here: report what the file states, and say where the label could still change it.
+
+Sources: <https://containers.dev/implementors/spec/>, <https://containers.dev/implementors/json_reference/> and <https://github.com/devcontainers/spec/blob/main/docs/specs/image-metadata.md>
 
 ## Lifecycle commands
 
@@ -135,8 +139,8 @@ The reference states: "On Linux, if `containerUser` or `remoteUser` is specified
 
 The default costs something in only two situations, and one of them must be visible in the repository before there is anything to report.
 
-1. **The pipeline names an image the build does not produce.** With the default in effect on Linux, the reference CLI derives a second, `-uid`-suffixed image, so a workflow that pins, tags, publishes or scans a specific `--image-name` is not operating on the image that actually runs. Report only on evidence of such a workflow: a CI invocation passing `--image-name`, a `devcontainers/ci` step setting `imageName` or `push`, or a documented prebuilt image tag.
-2. **A Linux-only ownership problem is being masked.** The step does not apply on macOS or Windows hosts, so an ownership workaround that makes permissions look right on a Mac may hide behaviour that differs on Linux. Report only when such a workaround is actually present — a `chown`, `chmod` or `sudo` ownership step in a lifecycle command.
+1. **The pipeline names an image the build does not produce.** With the default in effect on Linux, the reference CLI derives a second, `-uid`-suffixed image (visible in the CLI source at `src/spec-node/containerFeatures.ts`; stated by no document, so treat it as verified by inspection rather than cited), so a workflow that pins, tags, publishes or scans a specific `--image-name` is not operating on the image that actually runs. Report only on evidence of such a workflow: a CI invocation passing `--image-name`, a `devcontainers/ci` step setting `imageName` or `push`, or a documented prebuilt image tag.
+2. **A Linux-only ownership problem is being masked.** The step does not apply on macOS or Windows hosts, so an ownership workaround that makes permissions look right on a Mac may hide behaviour that differs on Linux. Report only when such a workaround is actually present. The forms below are examples, not an exhaustive list — read for the intent, which is a step that exists to correct file ownership or permissions: a `chown` or `chmod`, a `sudo` ownership step, an `install -o`, a `setfacl`, or a script whose name says as much. A step that merely works *around* an ownership mismatch without changing ownership — `git config --global --add safe.directory`, for instance — is not this symptom and is not a finding.
 
 If neither symptom is present, this rule is informational: it explains a default, and a default being in effect is not a finding.
 

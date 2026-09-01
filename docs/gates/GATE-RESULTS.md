@@ -32,12 +32,14 @@ Observed, load-bearing:
   `SKILL.md` form was **not run**; its single-file scope is taken from `--help`, not observed.
 
 CONSEQUENCE. `npx skills add` is the only faithful repo-ref channel and is the reference
-implementation for any Phase 2 `bin/`. A strict "frontmatter is exactly these four keys" CI gate
-**must run against the source file, not an installed copy** — `gh skill install` would fail it every
-time. Phase 2's `bin/` is not installable-and-runnable through any advertised channel without an
-extra step: clean on `npx skills add`, needs a documented `chmod +x` after `gh skill install`, and
-is unreachable via `copilot skill add`, which cannot fetch a repo. If Phase 2 happens, publish to
-npm with a `bin` entry and make `npx <pkg> audit` the primary path.
+implementation for any Phase 2 `bin/`. A strict "frontmatter is exactly these four keys" CI gate —
+four being **the set we ship**, not a claim about the legal set (the portable set is five; see
+README, "The frontmatter contract") — **must run against the source file, not an installed copy**
+— `gh skill install` would fail it every time. Phase 2's `bin/` is not installable-and-runnable
+through any advertised channel without an extra step: clean on `npx skills add`, needs a documented
+`chmod +x` after `gh skill install`, and is unreachable via `copilot skill add`, which cannot
+fetch a repo. If Phase 2 happens, publish to npm with a `bin` entry and make `npx <pkg> audit`
+the primary path.
 
 ### Gate A addendum — does Copilot accept an AUTHOR-WRITTEN `metadata:` block?
 STATUS: RUN 2026-09-01 — **ACCEPTED on Copilot CLI 1.0.82, project scope** (see RESIDUAL below).
@@ -188,12 +190,26 @@ MECHANICAL NOTE for future automation: `gh pr view --json reviewRequests` and RE
 false negative waiting to happen.
 
 ## Gate D — false-positive AND recall rate on real configs
-STATUS: not run
+STATUS: STARTED, DEFERRED before completion — Gate D now runs only if Gate E shows lift.
+Detail: `gate-d.md`, a resumable stub carrying the shard method, the fetch-bug diagnosis and the
+resume recipe.
 
-Feasibility confirmed by the controller: `gh api search/code` works with the current token
-(`total_count` 194,816 for `filename:devcontainer.json path:.devcontainer`), so the plan's primary
-harvest path is available and the clone-the-org fallback is not needed. Note the code-search API
-caps at 1,000 results per query — a corpus larger than that needs query sharding, not `--paginate`.
+NUMBERS (per the DECISIONS rule below — the corpus size and how it was obtained). The search phase
+ran and the expensive half did not: **4,176 hits, 4,165 unique blobs, 4,064 unique repos.** Method:
+the GitHub code-search API hard-caps every *query* at 1,000 results regardless of pagination, so a
+larger corpus needs **query sharding, not `--paginate`**. This run sharded on `size:` into **42
+disjoint ranges** — one 100-result page per shard, at a **10 requests/minute** limit, roughly
+**8 minutes** of wall clock. Near-1:1 blobs to repos, so the list is not dominated by forks of one
+file. This supersedes the controller's pre-run feasibility note, which recorded only that
+`gh api search/code` worked with the current token (`total_count` 194,816 for
+`filename:devcontainer.json path:.devcontainer`) and that the clone-the-org fallback was not needed.
+
+The content fetch then **failed silently** on a diagnosed bug, so `docs/gates/fp-corpus/` is
+**empty**. The harness was written and never run; no `parsed`/`unparseable` counts and no
+adjudications exist.
+
+**There is therefore no false-positive rate and no recall figure for any rule, and none may be
+quoted from those numbers: 4,176 is a corpus that was *found*, not one that was *measured*.**
 
 Note: the harness measures a fourth heuristic, `DC-FEAT-PIN`, which has **no corresponding rule**
 in Task 6's twelve. Its FP rate therefore cannot demote a rule; it gates a possible Phase 2 check
@@ -311,7 +327,10 @@ Phase 2 (executable checker) proceeds only if Gate E passed AND Gate D flagship-
 Record all numbers here, including the corpus size and how it was obtained.
 
 Settled by Gates A-C, carried forward — each bullet claims only what was observed:
-- **Frontmatter ships FOUR keys** (`name`, `description`, `license`, `metadata`), and a strict
+- **Frontmatter ships FOUR keys** (`name`, `description`, `license`, `metadata`) **of a five-key
+  portable set** — `allowed-tools` is the fifth and is omitted deliberately, because the key is
+  portable and its *value grammar* is not (Claude Code writes `Bash(node:*)`, Copilot writes
+  `shell(...)`); four is what we ship, not the only legal set. A strict
   "exactly these keys" CI gate must **validate the SOURCE file, never an installed copy** — `gh
   skill install` injects its own `metadata:` block and would fail such a gate every time (Gate A,
   observed diff). The acceptance half rests on **Copilot CLI 1.0.82, project scope,

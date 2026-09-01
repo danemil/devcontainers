@@ -20,9 +20,12 @@ plus `.github/instructions/devcontainers.instructions.md`, a contentless pointer
 mechanism is **unproven** — see below.
 
 **Status: Phase 1 ships.** That is a decision record, not a mood: it is what Gate E's
-measured lift and zero harm cases entitle us to say, at corpus version `0.2.0`. Everything
-below distinguishes what was measured from what was assumed. Where a thing is unproven,
-this file says so.
+measured lift and zero harm cases entitle us to say. **Read the version carefully, because
+the two are no longer the same number.** Gate E passed against corpus **`0.2.0`**; the corpus
+now ships **`0.3.0`**, and the outstanding evaluation debt that creates is stated under
+Maintenance rather than glossed. The authoritative version is the one `references/rules.md`
+declares — this file is not a third source of truth for it. Everything below distinguishes
+what was measured from what was assumed. Where a thing is unproven, this file says so.
 
 ---
 
@@ -114,16 +117,23 @@ transfer to a personally installed copy sitting outside the workspace.
 
 ## The frontmatter contract
 
-Five keys are portable across both hosts. **We ship four:**
+Five keys are portable across both hosts — **five per the plan's design constraint, not per
+anything a gate measured.** Gate A measured *acceptance* of the four we ship; it never
+enumerated the portable set. **We ship four:**
 
 ```yaml
 name: devcontainers
 description: Use when creating, editing, reviewing, validating or debugging a devcontainer.json…
 license: MIT
 metadata:
-  corpus_version: "0.2.0"
+  corpus_version: "<whatever references/rules.md declares>"
   spec_verified: "2026-08-31"
 ```
+
+The version is deliberately not written out here. `rules.md` is authoritative, the frontmatter
+copy exists so an installed skill can be identified without opening a reference file, and the
+third grep below is the only thing that keeps the two in step — a README that also stated it
+would be a third copy to forget.
 
 `allowed-tools` is the fifth. It is omitted because **the key is portable and its value
 grammar is not**: Claude Code writes `Bash(node:*)`, Copilot writes `shell(...)`. A single
@@ -259,15 +269,27 @@ as a violation, on a corpus where every quote verified and every checker passed.
 
 ### Half two — SAFE TO FOLLOW
 
-- **A twelve-row bucket fixture whose expected buckets are parsed out of `SKILL.md`'s own
-  worked tally**, not hand-copied into a test file. Run the AUDIT procedure against the
-  fixture config, parse the emitted tally, and assert it reconciles to twelve with each rule
-  in the bucket the worked example places it in.
-- **`label-safe` derived from the parsed twelve-item not-label-storable list** under
-  "My changes aren't taking effect" in `SKILL.md` — read at runtime, not duplicated. That
-  turns a prose fence into an executed constraint: it fails if anyone moves the list, which
-  is precisely the edit `SKILL.md`'s own editing note forbids, because AUDIT's bucket table
-  depends on that list and AUDIT does not load `spec-facts.md`.
+- **A bucket fixture whose expected buckets are parsed out of `SKILL.md`'s own worked
+  tally**, not hand-copied into a test file. Run the AUDIT procedure against the fixture
+  config, parse the emitted tally, and assert it reconciles to the rule count with each rule
+  in the bucket the worked example places it in. **Derive the count by counting the rules; do
+  not write it into the fixture.** A hard-coded total is the drift hazard this project has
+  been bitten by repeatedly — `SKILL.md` has had hard-coded counts removed from its own prose
+  for exactly this reason.
+- **`label-safe` derived from the parsed not-label-storable list** under "My changes aren't
+  taking effect" in `SKILL.md` — read at runtime, never duplicated and never counted into a
+  literal. That turns a prose fence into an executed constraint: it fails if anyone moves the
+  list, which is precisely the edit `SKILL.md`'s own editing note forbids, because AUDIT's
+  bucket table depends on that list and AUDIT does not load `spec-facts.md`.
+  **Derive it as positive attestation, not as a complement.** The list is not "everything the
+  can-carry list omits". Each entry has an untagged row in the spec's JSON reference, whose
+  legend states per property whether it is recorded in the image label — so the source has
+  **three** states, not two: tagged, untagged row, and *no row at all*. **Silence is not
+  immunity.** A property with no row is one the source does not speak to, and the audit must
+  read the merged configuration rather than infer. A harness that computes label-immunity by
+  absence across two lists will call unattested properties immune, which is how this was got
+  wrong in three files at once; `DC-DEP-001`, described throughout this project as the clean
+  case, turns out to be attested for one input of four.
 - **The T02-shaped secret fixtures, run against any changed `Detect`.** `${localEnv:TOKEN}`
   in `remoteEnv` must **not** be flagged — it is the exact form `DC-SEC-001`'s own `Fix`
   prescribes — while a literal secret must be, including a low-entropy one such as
@@ -276,8 +298,12 @@ as a violation, on a corpus where every quote verified and every checker passed.
   above). They can drift and nothing else catches it.
 
 Any `Detect` edit re-runs half two. A `Detect` change that alters what the corpus emits for
-an unchanged configuration is a **minor** version bump even when the edit looks tiny —
-`0.1.0` → `0.2.0` was exactly that.
+an unchanged configuration is a **minor** version bump even when the edit looks tiny.
+`0.1.0` → `0.2.0` was exactly that — two `Detect` fields narrowed, so findings that used to be
+emitted no longer are. So was `0.2.0` → `0.3.0`, in both directions at once: `DC-USER-001`'s
+ownership enumeration was opened from a closed three-item list to a read-for-intent class,
+**and** the `git config --global --add safe.directory` case was explicitly excluded — a case a
+live verification run had previously got right by luck rather than by instruction.
 
 ---
 
@@ -307,10 +333,13 @@ right mode engage, were rule IDs cited with tier tags, did `DC-ENV-001` come up 
 `userEnvProbe` question, and was any refusal violated.
 
 **Results live in `docs/VERIFICATION.md`** — the recorded baseline, not this file. Read it as
-a point-in-time measurement rather than a current statement: it records the `SKILL.md` hash it
-ran against, and `SKILL.md` has changed since (tier-tag and read-check fixes landed after that
-baseline). A baseline whose recorded hash no longer matches the file on disk has to be re-run
-before it can be cited as current, which is the whole reason it records a hash.
+a point-in-time measurement rather than a current statement: **it is pinned to commit
+`8d1f9c6`**, identified by hashing every commit on the branch until one matched all three of
+its recorded sha1s. `SKILL.md` has changed since (tier-tag and read-check fixes landed after
+that baseline), so its recorded hash no longer matches the file on disk. A baseline in that
+state has to be re-run before it can be cited as current, which is the whole reason it records
+hashes — and being able to name the commit is what makes "re-run it" a bounded instruction
+rather than a vague one.
 
 ---
 
@@ -322,13 +351,15 @@ claims only what was observed.
 | Gate | Question | Result | What it decided |
 | --- | --- | --- | --- |
 | **A** | installer fidelity | MIXED | `npx skills add` is the supported channel; a strict frontmatter gate validates the source file, never an installed copy |
-| **B** | can Copilot resolve `references/` from `.claude/skills/`? | **PASS** (Copilot CLI + Claude Code control) | `references/` depth is affordable — the twelve rules stay out of the `SKILL.md` body |
+| **B** | can Copilot resolve `references/` from `.claude/skills/`? | **PASS** (Copilot CLI **1.0.81** + Claude Code control) | `references/` depth is affordable — the twelve rules stay out of the `SKILL.md` body |
 | **C** | can Copilot code review shell out? | selection reaches, **execution FAILS** | on that surface the skill is prose-only |
-| **D** | false-positive and recall rate on real configs | **deferred behind Gate E**; search phase done, corpus empty | severities are uncalibrated; Phase 2 is not unblocked |
-| **E** | blinded usefulness — firing, lift, harm | **PASS at corpus 0.2.0** | Phase 1 ships |
+| **D** | false-positive and recall rate on real configs | **STARTED, DEFERRED before completion** — harvest search phase done, content fetch failed, corpus empty | severities are uncalibrated; Phase 2 is not unblocked |
+| **E** | blinded usefulness — firing, lift, harm | **PASS at corpus 0.2.0** — the corpus has since moved to `0.3.0` | Phase 1 ships; a full-set re-run is an outstanding debt (see Maintenance) |
 
-**Gate B — what rides with the PASS.** VS Code Copilot Chat is NOT RUN on both discovery and
-resolution. The probe cannot distinguish skill-relative resolution from reading a file under
+**Gate B — what rides with the PASS.** It was measured on **Copilot CLI 1.0.81**, carried
+forward and *not* re-measured in the 1.0.82 run that produced Gate A's addendum — record the
+version on any re-run, or the comparison is not a comparison. VS Code Copilot Chat is NOT RUN
+on both discovery and resolution. The probe cannot distinguish skill-relative resolution from reading a file under
 the working directory, so it says nothing about a personally installed copy. And Gate A
 observed that `copilot skill add`'s only copying form never copies `references/` at all, so
 on a Copilot-installed personal copy the level-3 files are not on disk to resolve. Safe
@@ -347,27 +378,47 @@ with this: whether the load is agent-skill selection or ordinary repo-context re
 repo, one account, review effort self-reported as "Lite" — it shows the plain unassisted path
 does not execute; it does not prove no configuration ever could.
 
-**Gate D — deferred, and its corpus is empty.** The search phase completed: **4,176 hits,
-4,165 unique blobs across 4,064 unique repos**, sharded by `size:` because the GitHub code
-search API caps at 1,000 results per query — sharding, not `--paginate`, is what a corpus
-larger than that needs. The blobs were never fetched. **There is therefore no
-false-positive rate and no recall figure for any rule.** Separately, the planned harness
-measures a fourth heuristic, `DC-FEAT-PIN`, which has **no corresponding rule** among the
-twelve; its FP rate gates a possible Phase 2 check and can never demote a rule.
+**Gate D — started, deferred before completion, and its corpus is empty.** That is the status
+`docs/gates/gate-d.md` carries, and it is more useful to a resumer than "not run", because the
+expensive half did happen:
+
+- **Search phase — DONE.** **4,176 hits, 4,165 unique blobs across 4,064 unique repos.** The
+  GitHub code-search API hard-caps every *query* at 1,000 results regardless of pagination, so
+  a larger corpus needs **query sharding, not `--paginate`**. This run sharded on `size:` into
+  **42 shards** — a partition that is disjoint, so no cross-shard duplicates — at one call per
+  shard against a 10 requests/minute limit, about eight minutes of wall clock. Near-1:1 blobs
+  to repos, so the corpus is not dominated by forks of one file.
+- **Content fetch — FAILED SILENTLY.** `docs/gates/fp-corpus/` is empty. The bug is diagnosed
+  in `gate-d.md`.
+- **Harness — written**, verbatim from the brief. **Run and adjudication — NOT RUN. Verdict —
+  NOT REACHED.**
+
+**There is therefore no false-positive rate and no recall figure for any rule**, and none may
+be quoted from the numbers above: 4,176 is a corpus that was *found*, not one that was
+measured. Separately, the harness measures a fourth heuristic, `DC-FEAT-PIN`, which has **no
+corresponding rule** among the twelve; its FP rate gates a possible Phase 2 check and can never
+demote a rule. See also "what this deliberately does not do" — Feature pinning is a real
+coverage gap, and `DC-FEAT-PIN` is the harness noticing it.
 
 **Gate E — passed at 0.2.0, after a fix.** Round 1 (`0.1.0`, 44 runs) met the lift bar and
 **failed the harm bar**: on `claude -p` one task went from correct to wrong, because the
 skill flagged `${localEnv:GITHUB_TOKEN}` — the exact form `DC-SEC-001`'s own `Fix`
 prescribes. Systematically, 4 of 16 emitted finding lines (25%) were false positives, all
 from two rules. Two `Detect` fields were narrowed and the gate re-run (20 runs, corpus
-`0.2.0`):
+`0.2.0`).
+
+**Read the table by its denominators, because the two rounds did not measure the same thing.**
+Round 1 ran ten tasks on each surface; round 2 re-ran a **five-task subset** (T02, T03, T08b,
+T11, T12), two of them probes added specifically to carry the case each narrowing was most at
+risk of losing. The firing-rate row in particular is not a like-for-like comparison, and the
+round-2 cell must not be read as a ten-task clean sweep — it was five tasks per surface.
 
 | | Round 1 (0.1.0) | Round 2 (0.2.0) |
 | --- | --- | --- |
 | harm cases | 1 | **0** |
 | false positives among finding lines | 4 of 16 (25%) | **0 of 9** |
 | true positives lost to the narrowing | n/a | **none — measured, not inferred** |
-| firing rate | 10/10 claude, 8/10 copilot | **10/10 on both surfaces** |
+| firing rate | 10/10 claude, 8/10 copilot (10 tasks each) | **5/5 on each surface — 10/10 combined, over 5 tasks** |
 
 Two findings the lift number does not capture, and they shape how this package should be
 read. **Zero confidently wrong answers in the WITH arm; three in the WITHOUT arm** — a
@@ -414,8 +465,11 @@ and this section with it.
 `upstream/awesome-copilot-devcontainers.instructions.md` is a self-contained
 `.instructions.md` file carrying all twelve rules **in instruction form** — assertion, what to
 look for, the concrete fix, and a source link — with **no `DC-` rule IDs and no severity
-labels**. It projects corpus `0.2.0`, including both narrowed `Detect` fields, each under a
-bolded **Do not report** paragraph.
+labels**. It projects corpus `0.2.0`, including both of that version's narrowed `Detect`
+fields, each under a bolded **Do not report** paragraph. **It is one minor version behind: the
+corpus is at `0.3.0` and this file has not been regenerated.** That is exactly the drift the
+section warns about below, caught here by a human rather than by a checker — because there is
+no checker.
 
 **It is a payload prepared for [`github/awesome-copilot`](https://github.com/github/awesome-copilot)
 and it has not been submitted.** No PR has been opened, so there is no outcome to record here.
@@ -485,6 +539,27 @@ it did.
 A version bump also obliges a re-generation of `upstream/`, which is a projection of the
 corpus with no checker behind it — see the section above.
 
+### Outstanding evaluation debt, as of corpus `0.3.0`
+
+Stated rather than left for a reader to infer from a version number that looks freshly
+validated:
+
+- **The corpus is at `0.3.0`. The last full Gate E evaluation ran against `0.2.0`.**
+- **That `0.2.0` evaluation was round 2, and it re-ran five of ten tasks** (T02, T03, T08b,
+  T11, T12). It genuinely evaluated both of the `0.1.0` → `0.2.0` narrowings — 20 runs,
+  including two probes built specifically to catch a lost true positive, and none was lost.
+  What has never run against a post-`0.1.0` corpus is **the other five tasks**.
+- **`0.2.0` → `0.3.0` has not been evaluated at all.** It opened `DC-USER-001`'s ownership
+  enumeration and excluded one case from it — a `Detect` change that alters what fires in both
+  directions, which is precisely the class the SAFE-TO-FOLLOW half exists for.
+- **`upstream/` still projects `0.2.0`** and owes a regeneration.
+
+**The obligation this adds up to: a full ten-task Gate E re-run at `0.3.0`, and an `upstream/`
+regeneration, before the upstream PR is opened.** Both are acknowledged debts, not completed
+work. This is the cascade a version bump triggers under the rule two paragraphs above; it was
+predicted, it was accepted as the price of a correct corpus edit, and reverting correct work to
+protect a version number would have been the wrong trade.
+
 ---
 
 ## What this deliberately does not do
@@ -504,6 +579,15 @@ Stated so nobody is surprised by an absence:
   multi-service topologies.
 - **No migration mode.** The skill will not rewrite a working config to match a style
   preference, and there is no "modernise this for me" path.
+- **No rule covers Feature or image version pinning.** AUTHOR carries a `[OPINION]` "pin
+  versions" bullet and AUDIT will land an unpinned `latest` under `Observations`, but there is
+  **no `Detect` for it anywhere in the twelve rules**, so an unpinned Feature is not a finding
+  and never carries a rule ID. Confirmed twice from opposite directions: the Gate D harness measures a
+  `DC-FEAT-PIN` heuristic that maps onto no rule, and Task 10's verification fixture planted
+  an unpinned Feature as one of four deliberate flaws — it correctly never became a finding.
+  **The twelve rules are not a closed corpus.** They are the twelve that survived a citation
+  pass and a usefulness gate; a config problem with no rule is an `Observations` line, not a
+  claim that nothing is wrong.
 - **No executable checker, and no JSON Schema validation.** `devcontainer.json` validation
   today is editor-only via SchemaStore; the devcontainer CLI ships none. The skill refuses
   to claim conformance it did not run. A SARIF-producing checker is Phase 2 and is gated on
@@ -522,10 +606,21 @@ Stated so nobody is surprised by an absence:
   on, with an `ERRATA` section at the end correcting it rather than rewriting it in place.
 - `docs/sources/` — 26 cached primary sources, so the citation pass can run offline for the
   nine rules that do not need a live fetch.
-- `docs/gates/` — the empirical gate results. `gate-d.md` carries the Gate D search-phase
-  numbers and the rate-limit accounting; the harvest artefacts themselves live under
-  `docs/gates/.harvest/`, which is gitignored, so `gate-d.md` **is** the record rather than a
-  pointer to one.
+- `docs/gates/` — the empirical gate results, with `gate-d.md` carrying the Gate D
+  search-phase numbers, the shard method and the rate-limit accounting. **The expensive
+  harvest artefacts ship with the repository**: `.gitignore` excludes `docs/gates/.harvest/`,
+  but `hits.uniq.tsv` (4,176 rows: repo, path, blob sha), `harvest.sh` and `fetch.sh` were
+  force-added past that rule on purpose, so the eight minutes of rate-limited code search
+  survive a `git clean -fdx` and a resumer does not have to buy them again.
+  **One thing a resumer should know, though it costs nothing:** `blobs.tsv` — the 4,165-row
+  list deduped by blob sha — is **derived, not stored.** It is not committed, and neither
+  `gate-d.md`'s resume recipe nor the file itself says where it comes from; `fetch.sh`'s first
+  working line is `awk -F'\t' '!seen[$3]++' hits.uniq.tsv > blobs.tsv`, which **regenerates it
+  from the committed hit list unconditionally on every run.** So a fresh clone needs nothing
+  extra and the recipe does not fail. A manual dedup on the blob-sha column is only needed if
+  someone drives the fetch some other way. Verified independently from the committed file:
+  4,176 rows deduplicate to **4,165 unique blob shas across 4,064 repos**.
+  `docs/gates/fp-corpus/` is genuinely absent — it is ignored, and it is empty anyway.
 - `upstream/awesome-copilot-devcontainers.instructions.md` — the unsubmitted
   `github/awesome-copilot` payload and the project's only sanctioned prose projection of the
   corpus; see the section above for why it is allowed and what it obliges.

@@ -26,17 +26,21 @@ none was measured.** An unfinished gate that reports a rate is exactly the
 | --- | --- | --- |
 | `docs/gates/fp-measure.mjs` | The harness, verbatim from the brief | yes |
 | `docs/gates/fp-corpus/` | **empty** — 0 files (fetch bug) | no, gitignored |
-| `docs/gates/.harvest/hits.uniq.tsv` | 4,176 rows: `repo <TAB> path <TAB> blob-sha` | **no — gitignored** |
-| `docs/gates/.harvest/blobs.tsv` | 4,165 rows, deduped to one repo/path per unique blob sha | **no — gitignored** |
-| `docs/gates/.harvest/harvest.{sh,log}` | The shard script and its per-shard yield log | no, gitignored |
+| `docs/gates/.harvest/hits.uniq.tsv` | 4,176 rows: `repo <TAB> path <TAB> blob-sha` | **yes — force-added past the ignore rule** |
+| `docs/gates/.harvest/blobs.tsv` | 4,165 rows, deduped to one repo/path per unique blob sha | **no** — ignored, and *derived*; see the resume recipe |
+| `docs/gates/.harvest/harvest.sh` | The shard script | **yes — force-added** |
+| `docs/gates/.harvest/fetch.sh` | The content-fetch script (the one carrying the `IFS` bug) | **yes — force-added** |
+| `docs/gates/.harvest/harvest.log`, `fetch.log`, `hits.tsv`, `manifest.tsv` | Per-shard yield log, fetch log, pre-dedup hits, empty manifest | no, gitignored |
 | `.gitignore` | gained `docs/gates/fp-corpus/` and `docs/gates/.harvest/` | yes |
 
-> **Preservation warning.** `docs/gates/.harvest/` holds the *expensive* artifact — the
-> 4,176-row hit list cost 42 code-search calls against a **10 requests/minute** limit, about
-> 8 minutes of wall clock. It is currently gitignored and therefore vulnerable to any
-> `git clean -fdx`. If the controller wants it durable, either commit it explicitly
-> (`git add -f docs/gates/.harvest/hits.uniq.tsv`) or copy it out of the repo before cleaning.
-> Given that list, the resumed run needs **no code search at all** — only the content fetch.
+> **Preservation — done, not pending.** `docs/gates/.harvest/` holds the *expensive* artifact:
+> the 4,176-row hit list cost 42 code-search calls against a **10 requests/minute** limit, about
+> 8 minutes of wall clock. `.gitignore` still excludes the directory, but `hits.uniq.tsv`,
+> `harvest.sh` and `fetch.sh` were **force-added past that rule on purpose** (`git add -f`), so
+> those eight minutes now survive a `git clean -fdx` and a fresh clone does not have to buy them
+> again. Given that list, the resumed run needs **no code search at all** — only the content
+> fetch. **The one thing a fresh clone does not get is `blobs.tsv`**, which is derived rather
+> than harvested — see the resume recipe.
 
 ## Corpus harvest method — exact and reproducible
 
@@ -182,8 +186,14 @@ intentions, not findings — nothing below has been measured.**
 ## Resume recipe (shortest path)
 
 1. Fix `IFS` in `docs/gates/.harvest/fetch.sh`, drop the `2>/dev/null`, add the count assertion.
-2. Run it against the existing `docs/gates/.harvest/blobs.tsv` — **no code search needed**,
-   the hit list is already on disk. ~4,165 blob fetches, well inside the 5,000/hr core limit.
+2. Run it against `docs/gates/.harvest/blobs.tsv` — **no code search needed**, the hit list is
+   already on disk. **`blobs.tsv` is not committed**, only `hits.uniq.tsv` is, so in a fresh
+   clone it does not exist yet: it is the 4,176-row hit list deduplicated on the **blob-sha
+   column** down to one representative `repo/path` per unique sha (4,165 rows). `fetch.sh`
+   already re-derives it as its first step —
+   `awk -F'\t' '!seen[$3]++' hits.uniq.tsv > blobs.tsv` — so running `fetch.sh` needs nothing
+   extra; derive it that way by hand only if the fetch is driven some other way. The dedup is
+   cheap and needs no API call. ~4,165 blob fetches, well inside the 5,000/hr core limit.
 3. `node docs/gates/fp-measure.mjs docs/gates/fp-corpus`; record `parsed`/`unparseable`. If
    `unparseable` exceeds ~2% of the corpus, stop and say so loudly — the crude regex JSONC
    stripper would be silently biasing the corpus toward simple configs.

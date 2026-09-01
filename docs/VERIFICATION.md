@@ -15,15 +15,26 @@ quarterly. Compare against the baseline below; a drop in the fire column is the 
 - **Rules corpus:** `0.2.0`
 - **Result: 6 of 6 fired.** Right mode engaged in 6 of 6; announced in 4 of 6.
 
-> **Snapshot caveat.** `references/spec-facts.md` was being written by a concurrent agent while
-> this ran. The six runs tested it at sha1 `204a71be…` (36,619 bytes); it was edited again
-> immediately afterwards and now reads `919e9369…` (36,349 bytes) — a ~270-byte change.
-> `SKILL.md` (`7091814a…`) and `references/rules.md` (`835cd1fe…`) were byte-identical to the
-> committed state throughout. Every observation recorded below — firing, mode, rule IDs, tier
-> tags, `DC-ENV-001`, refusals — is sourced from `SKILL.md` and `rules.md`, which carry all rule
-> content, tiers, severities and the report format. `spec-facts.md` was opened in two runs
-> (2 and 3) as background mechanics and no recorded verdict turns on its wording. A re-run
-> should re-record all three hashes.
+> **Snapshot caveat — and what the hashes below are hashes *of*.** This baseline was taken
+> against the tree of commit **`8d1f9c6`** ("feat: spec-facts reference, README, licence, pointer,
+> verification, upstream payload"), and **every sha1 in this document is a hash of that state, not
+> of the current files.** All three files have been edited since — `8cf2f34` and later commits —
+> so a hash that no longer matches disk is **expected drift from a pinned baseline, not evidence
+> that something was tampered with or that the baseline was mis-recorded**. A future re-runner
+> should compare against `8d1f9c6`'s files (`git show 8d1f9c6:.claude/skills/devcontainers/…`) to
+> see what was actually under test, then re-record all three hashes for the new baseline. These
+> hashes are deliberately **not** refreshed in place: doing so would silently convert a record of
+> what ran into a claim about a version that never did.
+>
+> Within that pinned state, one file was in flux: `references/spec-facts.md` was being written by
+> a concurrent agent while this ran. The six runs tested it at sha1 `204a71be…` (36,619 bytes), an
+> uncommitted mid-write state; it was edited again immediately afterwards and the version that
+> landed in `8d1f9c6` reads `919e9369…` (36,349 bytes) — a ~270-byte change. `SKILL.md`
+> (`7091814a…`) and `references/rules.md` (`835cd1fe…`) were byte-identical to `8d1f9c6`
+> throughout. Every observation recorded below — firing, mode, rule IDs, tier tags, `DC-ENV-001`,
+> refusals — is sourced from `SKILL.md` and `rules.md`, which carry all rule content, tiers,
+> severities and the report format. `spec-facts.md` was opened in two runs (2 and 3) as background
+> mechanics and no recorded verdict turns on its wording.
 
 ---
 
@@ -327,12 +338,14 @@ separately from the rule ID.
 | 5 `copilot` DEBUG | `DC-ENV-001` cited with **no tier anywhere in the answer** | **fail** |
 | 6 `copilot` AUTHOR | `[OPINION]` used correctly on the pinning remark; `DC-SEC-001` cited **untagged** | **partial** |
 
-Only AUDIT prescribes the `DC-XXX-NNN  [TIER]  SEVERITY` line shape, and both AUDIT runs
-carried the tier on every finding — Claude in the exact shape, Copilot in a table column. The
-weakness is outside AUDIT: **three of the four DEBUG/AUTHOR runs cite rule IDs with the tier
-attached only in prose or not at all, and run 5 drops it entirely.** A reader who quotes
-`DC-ENV-001` out of run 5's answer carries no SPEC/OPINION distinction with it. That is the
-one substantive gap this baseline found.
+In the version under test, only AUDIT prescribed the `DC-XXX-NNN  [TIER]  SEVERITY` line shape,
+and both AUDIT runs carried the tier on every finding — Claude in the exact shape, Copilot in a
+table column. The weakness was outside AUDIT: **three of the four DEBUG/AUTHOR runs cited rule IDs
+with the tier attached only in prose or not at all, and run 5 dropped it entirely.** A reader who
+quotes `DC-ENV-001` out of run 5's answer carries no SPEC/OPINION distinction with it. That was the
+one substantive gap this baseline found, and it is what `8cf2f34` fixed: the tier requirement now
+binds wherever a rule ID is cited, in any mode, not only inside AUDIT's report format. **These six
+runs predate that fix and do not measure it** — see section 5.
 
 ### Surfaces not run
 
@@ -546,6 +559,12 @@ Can you share the exact error text `postCreateCommand` produces? "command not fo
 3. For each run, answer six questions off the tool trace and the answer text:
    fired? · right mode? · mode announced? · rule IDs? · **tier tags on those IDs?** ·
    did prompt 2 reach `DC-ENV-001`? · any refusal violated, refusal 3 especially?
+   **And a seventh, added after a live run mis-attributed one:** for every cited fact, record
+   **which file it is attributed to**, not only whether the fact itself is right. A run credited
+   "spec-facts item 5" for content that lives in `SKILL.md`, in a run whose trace shows
+   `spec-facts.md` was never opened — a reference asserted from context rather than read. The six
+   questions above all pass on that run, because a right fact with a wrong source is invisible to
+   every one of them. Check the attribution against the trace, not against plausibility.
 4. Record the offered-skill count from Copilot's `session.skills_loaded`. A re-run against a
    much smaller skill field is not comparable to this baseline.
 5. Compare to the table in section 2. Any cell that moves from YES to NO in the **Fired**
@@ -571,8 +590,12 @@ statistical strength: 3 runs per surface cannot separate a 100% rate from an 80%
 nothing about a bare machine — this environment carries 133 user-level skills, and firing
 behaviour in a repository with six skills installed may differ.
 
-**The one gap it did find.** Tier tags are reliable in AUDIT and unreliable outside it. Run 5
-cited `DC-ENV-001` with no tier at all, and runs 3 and 6 attached tiers in prose or not at all.
-The `[TIER]` requirement is written into the AUDIT report format and nowhere else; DEBUG and
-AUTHOR cite rule IDs without an equivalent instruction. If a future edit strengthens anything
-here, that is the place.
+**The one gap it did find — since closed.** Tier tags were reliable in AUDIT and unreliable
+outside it. Run 5 cited `DC-ENV-001` with no tier at all, and runs 3 and 6 attached tiers in prose
+or not at all. **At the time these runs were made**, the `[TIER]` requirement was written into the
+AUDIT report format and nowhere else; DEBUG and AUTHOR cited rule IDs without an equivalent
+instruction. **Fixed in `8cf2f34`**, which moved the requirement above the mode table so it binds
+wherever a rule ID is cited, in any mode, rather than only inside AUDIT's report format. The
+observation is kept because it is the evidence that produced the fix — **not** because it still
+describes the current `SKILL.md`. **Unverified against the fix: nothing here re-measures whether
+Copilot's DEBUG/AUTHOR now carry the tag. Re-run.**
