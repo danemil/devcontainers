@@ -249,6 +249,59 @@ NOT RUN, and it stays open: the `.github/instructions/` pointer sub-experiment t
 this gate needs VS Code's silent inline-edit surface. **Task 9 must not assume the pointer works**,
 and its delete-if-inert rule cannot be evaluated yet.
 
+
+### Gate E round 2 — after narrowing the two misfiring Detect fields (corpus 0.2.0)
+STATUS: RUN 2026-09-01 — **PASS. Phase 1 SHIPS.**
+
+20 runs of 20 attempted (T02, T03, T08b, T11, T12 x 2 surfaces x 2 arms), all exit 0.
+Firing **10/10 = 100% on BOTH surfaces** this round; copilot missed two of ten in round 1 and
+none of five here.
+
+| Number | Round 1 (0.1.0) | Round 2 (0.2.0) |
+|---|---|---|
+| HARM | 1 | **0** |
+| False positives among emitted finding lines | 4 of 16 (25%) | **0 of 9** |
+| True positives lost to the narrowing | n/a | **none — measured, not inferred** |
+
+THE HARM CELL IS FIXED AT THE SOURCE. On T02, `claude` WITH now emits one `DC-SEC-001` finding —
+the literal only — and adds an explicit "two things I checked and am NOT reporting" block naming
+`${localEnv:GITHUB_TOKEN}` as "correct as written... flagging it would contradict the rule".
+`copilot` WITH reached the same place independently.
+
+TWO PROBES WERE ADDED because neither existing fixture carried the case each narrowing was most at
+risk of losing. Labels were written before running, per the gate's own discipline.
+- **T11** — both password literals raised as `DC-SEC-001 [SPEC] ERROR`, **including the
+  low-entropy `hunter2`**, while `${localEnv:API_SECRET}` was explicitly declined ("the
+  substitution exclusion is absolute") and a neutral literal was not raised. The corpus author's
+  worked check is now an OBSERVATION rather than their reading of their own text.
+- **T12** — a CI job running `devcontainer build --image-name ... --push`. Both surfaces WITH
+  fired `DC-USER-001`, connected it to the published tag not being the image that runs, and gave
+  the CI fix. **Both WITHOUT arms missed it entirely**; copilot even listed non-root `remoteUser`
+  under "good practices already present".
+
+`DC-USER-001` now fires on exactly ONE of ten WITH runs — the single fixture carrying the evidence
+its new `Detect` requires — and is reasoned about and declined on the other eight. The sharpest
+instance is the clean-config control, which noticed `git config --global --add safe.directory` is
+an ownership workaround, checked the rule's enumeration, and declined because "its `Detect`
+enumerates `chown`, `chmod` and `sudo` specifically". Round 1's PARTIAL on that control became
+"Findings: None."
+
+DECISION: lift >= 3 of 10 (6 in round 1, undisputed; round 2 converts T02 from harm to lift and
+adds T03 and T12) AND harm = 0. Both conditions of the ship branch are met. **Phase 1 ships.**
+
+CARRIED CAVEATS, none of which the decision rests on:
+- **Control variance is real.** The WITHOUT arm scored differently from round 1 on all three
+  re-run tasks, in BOTH directions. Every cell is n=1. This does not touch the harm finding, which
+  is WITH-vs-WITHOUT on the same fixture, but round 2's control numbers are not evidence of the
+  base model degrading.
+- **VS Code agent mode is unmeasured in both rounds**, and the `.github/instructions/` pointer is
+  still untested. Task 9 must not assume the pointer works and cannot yet apply its
+  delete-if-inert rule.
+- `references/spec-facts.md` was still absent; its degradation clauses fired correctly again.
+- Minor, for the record: `DC-USER-001`'s ownership-workaround enumeration is closed
+  (`chown`/`chmod`/`sudo`). A model correctly declined `git config safe.directory` against it. The
+  outcome was right and the reasoning was sound, but the enumeration may be under-inclusive.
+
 ## DECISIONS
 Phase 1 SHIPS only if Gate E shows lift on >= 3 of 10 tasks with zero harm cases.
   **Lift 1-2 => the problem is selection, not rules. Rewrite the description. Do not add rules.**

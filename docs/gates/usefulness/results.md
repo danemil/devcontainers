@@ -377,3 +377,243 @@ Then re-run this gate. If harm reaches 0 with lift holding, Phase 1 ships.
   WITH run improved on the WITHOUT run while never invoking the skill. Read the aggregate,
   not the individual cells.
 
+
+---
+---
+
+# ROUND 2 — targeted re-run against corpus 0.2.0
+
+**Everything above this line is round 1, against corpus `0.1.0`, and is left exactly as it was
+written.** The before/after is the evidence that the fix worked, so nothing was overwritten. The
+decision at the end of round 1 stands as the decision *round 1* produced; the decision this gate
+now produces is at the bottom of this section.
+
+## What changed in the corpus, and what did not
+
+`references/rules.md` moved `0.1.0` → `0.2.0`. Two `Detect` fields were narrowed. Nothing was
+added: no new rule, no severity or tier change, no `Quote` or `Source` change.
+
+- **`DC-SEC-001`** now decides on the value, not the key. A `${localEnv:...}` / `${containerEnv:...}`
+  reference is not a finding at any severity whatever its key is called, and that exclusion is
+  absolute and applied first. Remaining ambiguity resolves directionally: a literal under a
+  secret-shaped key is reported unless obviously a placeholder; a literal under a neutral key is
+  described rather than raised.
+- **`DC-USER-001`** no longer fires on the absence of an optional property. It reports only on
+  evidence that the default costs something — a pipeline pinning an `--image-name`, or a `chown`
+  / `chmod` / `sudo` ownership workaround in a lifecycle command.
+
+## The question round 2 answers
+
+**Is HARM now zero, and did the narrowing cost any true positive?** Lift was met at 6 of 10 in
+round 1 and is not in dispute. Round 2 does not re-open it.
+
+## Method
+
+Identical to round 1: `/tmp/gate-e2` scratch tree, never this repository; fresh session and a
+fresh working directory per run; the WITHOUT arm `mv`s the `devcontainers` **directory** to
+`/tmp/gate-e2/parked/<runid>` and back; the same five decoy skills (`changelog`, `sql-review`,
+`terraform-modules`, `gha-workflows`, `api-docs`) so selection still has to discriminate. Graded
+against the labels already in `tasks.md` — **nothing was re-labelled.**
+
+### Re-run set, and why each task is in it
+
+| Task | Reason |
+| --- | --- |
+| T02 | the harm case — the run that decides the gate |
+| T03 | `DC-USER-001` emitted a finding line here in round 1 (`copilot` WITH) |
+| T08b | the clean-config control — confirmation nothing moved the wrong way |
+| T11 | **new**: `DC-SEC-001` true-positive probe (labels in `tasks.md`, round 2 additions) |
+| T12 | **new**: `DC-USER-001` true-positive probe (labels in `tasks.md`, round 2 additions) |
+
+T01, T04, T05, T06, T07, T09 and T10 were not re-run: neither narrowed rule emitted a finding
+line on any of them in round 1, and neither narrowing can affect a rule it does not touch.
+
+**20 runs attempted, 20 completed, all exit 0, 0 contamination flags.**
+
+The two new tasks exist because a narrowing's characteristic failure is silencing a *true*
+positive, and neither original fixture contained the case each narrowing was most at risk of
+losing. T11 adds a low-entropy literal under a secret-shaped key (`"POSTGRES_PASSWORD":
+"devpassword123"`, plus the corpus author's own worked example `"DB_PASSWORD": "hunter2"`) —
+exactly what a value-based test might fail to recognise as a credential. T12 supplies the
+in-repository evidence `DC-USER-001`'s new `Detect` requires: a CI workflow running
+`devcontainer build --image-name ghcr.io/acme/web-api-dev:latest --push`.
+
+## Round 2 results
+
+| Task | claude W | claude WO | copilot W | copilot WO | lift | harm |
+| --- | --- | --- | --- | --- | --- | --- |
+| T02 harm case | CORRECT (fired) | PARTIAL | CORRECT (fired) | CORRECT | **yes** (claude) | **no** |
+| T03 `waitFor` | CORRECT (fired) | CORRECT | CORRECT (fired) | PARTIAL | **yes** (copilot) | **no** |
+| T08b clean config | CORRECT (fired) | PARTIAL | CORRECT (fired) | PARTIAL | **yes** (both) | **no** |
+| T11 low-entropy secret | CORRECT (fired) | CORRECT | CORRECT (fired) | CORRECT | — | **no** |
+| T12 CI pins `--image-name` | CORRECT (fired) | **WRONG** | CORRECT (fired) | **WRONG** | **yes** (both) | **no** |
+
+```
+FIRING RATE   claude -p   5/5 = 100%     copilot -p  5/5 = 100%     combined 10/10 = 100%
+HARM          0 of 5 tasks, 0 of 20 runs
+TRUE POSITIVES LOST   0
+```
+
+### HARM is zero — the T02 regression is gone
+
+Round 1, `t02_claude_with`, corpus 0.1.0:
+
+> ```
+> DC-SEC-001  [SPEC]  ERROR  .devcontainer/devcontainer.json:6  Literal Stripe secret key in remoteEnv
+> DC-SEC-001  [SPEC]  ERROR  .devcontainer/devcontainer.json:5  remoteEnv key matches TOKEN (GITHUB_TOKEN)
+> ```
+
+Round 2, `t02_claude_with`, corpus 0.2.0 — same fixture, same prompt, same surface:
+
+> ```
+> DC-SEC-001  [SPEC]  ERROR  .devcontainer/devcontainer.json:6  literal credential-shaped value in remoteEnv: STRIPE_API_KEY = "sk_test_51Pfake…"
+> ```
+>
+> Two things I checked and am **not** reporting:
+> - **`GITHUB_TOKEN` (line 5) is correct as written.** `${localEnv:GITHUB_TOKEN}` is a
+>   substitution reference — the literal never enters the file or the label. This is exactly the
+>   form `DC-SEC-001`'s own `Fix` prescribes; flagging it would contradict the rule.
+> - **`APP_ENV: "development"` (line 7)** is plainly not a credential.
+
+`t02_copilot_with` reached the same place independently: "`GITHUB_TOKEN` is fine
+(`${localEnv:GITHUB_TOKEN}` substitution, never enters the file). `APP_ENV: "development"` is not
+a credential."
+
+### `DC-USER-001` now fires exactly once, on the one config with evidence
+
+Across all ten round-2 WITH runs:
+
+| Run | `DC-USER-001` disposition |
+| --- | --- |
+| t02 claude / t02 copilot | mentioned, **not** a finding |
+| t03 claude / t03 copilot | mentioned, **not** a finding |
+| t08b claude / t08b copilot | mentioned, **not** a finding |
+| t11 claude / t11 copilot | mentioned, **not** a finding |
+| **t12 claude / t12 copilot** | **FINDING EMITTED** |
+
+`t02_copilot_with` states the new test back verbatim while declining to fire: "`remoteUser:
+vscode` set, `updateRemoteUserUID` unset (correct default). No CI workflow pinning a derived
+image, no `chown` workaround present — neither trigger condition applies."
+
+`t08b_claude_with` is the sharpest instance, because T08b's `postCreateCommand` *is* an ownership
+workaround of a sort and the model reasoned about it rather than reflexively firing:
+
+> `postCreateCommand` runs `git config --global --add safe.directory ${containerWorkspaceFolder}`.
+> This is a workaround for git's dubious-ownership check … `DC-USER-001` reports on an ownership
+> workaround in a lifecycle command, but its `Detect` enumerates `chown`, `chmod` and `sudo`
+> specifically — `git config safe.directory` is none of those, so this is not a finding under that
+> rule. Flagging it because it is adjacent …
+
+It then reported **"Findings: None."** — round 1's PARTIAL on the false-positive control became a
+clean CORRECT.
+
+### Finding-line audit — round 2
+
+```
+$ grep -H -E 'DC-[A-Z]+-[0-9]+ +\[(SPEC|OPINION)\] +(ERROR|WARN|INFO)' *_with.answer.md
+t02_claude_with  | DC-SEC-001  ERROR :6   STRIPE_API_KEY literal
+t02_copilot_with | DC-SEC-001  ERROR      STRIPE_API_KEY literal          (table-formatted)
+t03_claude_with  | DC-LIFE-002 ERROR :6   waitFor "postAttachCommand"
+t03_copilot_with | DC-LIFE-002 ERROR :5   waitFor "postAttachCommand"
+t08b_*_with      | (none — "Findings: None.")
+t11_claude_with  | DC-SEC-001  ERROR :5   DB_PASSWORD = "hunter2"
+t11_claude_with  | DC-SEC-001  ERROR :6   POSTGRES_PASSWORD = "devpassword123"
+t11_copilot_with | DC-SEC-001  ERROR :5-6 both password literals
+t12_claude_with  | DC-USER-001 WARN  :9   remoteUser set + CI publishes --image-name
+t12_copilot_with | DC-USER-001 WARN  :9   same
+```
+
+**Round 1: 16 finding lines, 4 false positives (25%). Round 2: 0 false positives.**
+
+## Did the narrowing cost a true positive? No — measured, not assumed
+
+### `DC-SEC-001` still catches a genuine hardcoded credential (T11)
+
+This was the specific risk. Both surfaces, WITH the skill, reported **both** password literals as
+`DC-SEC-001 [SPEC] ERROR` — including `hunter2`, the value the corpus author claimed would still
+raise. That claim is now an observation rather than a reading:
+
+`t11_claude_with`:
+
+> ```
+> DC-SEC-001  [SPEC]  ERROR  .devcontainer/devcontainer.json:5  remoteEnv.DB_PASSWORD is the
+>                     literal "hunter2" — a literal value under a secret-shaped key
+> DC-SEC-001  [SPEC]  ERROR  .devcontainer/devcontainer.json:6  remoteEnv.POSTGRES_PASSWORD is
+>                     the literal "devpassword123" — same
+> ```
+>
+> The rule's own test is value-based, not key-based: a literal under `PASSWORD`/`API_KEY`/`TOKEN`
+> is a credential unless it's an obvious placeholder like `changeme`, so a short low-entropy value
+> like `hunter2` still counts.
+
+And it drew the line in the right place on the same config, unprompted:
+
+> Two entries are **not** findings, deliberately:
+> - `API_SECRET: "${localEnv:API_SECRET}"` (line 7) — the substitution exclusion is absolute …
+> - `REPORT_PREFIX: "q3-2026"` (line 8) — a literal that is plainly not a credential.
+
+`t11_copilot_with` matched it, including the exclusion: "`remoteEnv.API_SECRET =
+"${localEnv:API_SECRET}"` is NOT a finding — it's a substitution reference, the literal never
+enters the file or the label."
+
+So all three judgements the label required landed on both surfaces: the plausible literal
+reported, the substitution reference untouched, the neutral literal not raised. **`hunter2` is
+recorded as raised — the author's worked check is confirmed by observation.** T11 shows no lift
+(the base model flags hardcoded passwords too), which is expected: it is a true-positive probe,
+not a lift task.
+
+### `DC-USER-001` still fires when the default actually costs something (T12)
+
+Both surfaces WITH the skill emitted the finding and made the connection the label required.
+`t12_claude_with`:
+
+> The rule is explicit that an absent `updateRemoteUserUID` is **not** on its own a defect — it
+> fires here only because symptom (1) of its `Detect` is present in the repo:
+> `.github/workflows/publish-devcontainer.yml:24` passes `--image-name
+> ghcr.io/acme/web-api-dev:latest --push` on a Linux runner. With the default in effect on Linux
+> the reference CLI derives a second image … so the tag you publish and the image that actually
+> runs can diverge.
+
+Both WITHOUT runs missed it entirely — **zero occurrences of `updateRemoteUserUID`, `-uid image`
+or `UID/GID` in either.** `t12_copilot_without` went further and listed "non-root `remoteUser:
+node`" under "Good practices already present". T12 is therefore also a clean, attributable lift on
+both surfaces: the rule survived the narrowing *and* catches something neither base model does.
+
+## Honest note on control variance
+
+Round 2's WITHOUT arm scored differently from round 1's on all three re-run tasks, in both
+directions: T02 claude went CORRECT → PARTIAL (this time it recommended "drop it" for the
+`${localEnv:GITHUB_TOKEN}` entry), T03 copilot went CORRECT → PARTIAL (it hedged on `waitFor` and
+added a false claim that `javascript-node:1-20-bookworm` "likely doesn't exist"), T08b copilot
+went WRONG → PARTIAL. Every cell is n=1 and the control moves.
+
+That variance does **not** touch the question round 2 was run to answer. Harm is a property of the
+WITH arm relative to the WITHOUT arm on the *same* fixture, and the specific regression — an
+`ERROR` finding against `${localEnv:...}` — is gone on both surfaces and cannot recur, because
+the exclusion is now absolute and applied first. Likewise the true-positive result rests on the
+WITH arm firing, not on what the control did.
+
+## The decision the rule now produces
+
+```
+LIFT = 6 of 10 (round 1, undisputed; round 2 additionally converts T02 from harm to lift,
+                and T03 and T12 to lift — so >= 6)
+HARM = 0
+```
+
+> **Lift >= 3 of 10 tasks and HARM = 0** → Phase 1 ships. Proceed to Task 11.
+
+**Outcome: the gate passes. Phase 1 ships.** Both conditions of the first branch now hold:
+lift clears the threshold and harm is zero, measured on the exact task that produced it, on both
+surfaces, with the narrowed rules confirmed to still catch what they should.
+
+### Carried forward unchanged
+
+These were open at the end of round 1 and round 2 did not address them:
+
+- **VS Code agent mode is still unmeasured** on every number in this file, both rounds. A human
+  must run it: ten fixtures, ten prompts in agent mode, with and without the skill directory.
+- **The `.github/instructions/` pointer is still untested.** Task 9 must not assume it works.
+- **`references/spec-facts.md` is still absent**, as designed. The degradation clauses fired
+  correctly again in round 2.
+- **Every per-task cell is n=1**, in both rounds. Read the aggregate.

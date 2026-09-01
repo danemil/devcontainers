@@ -328,3 +328,104 @@ independent work.
 - **WRONG** — misreads the object as a single shell string / invalid syntax, or affirms
   ordered execution.
 - **CONFIDENTLY WRONG** if it states the entries run in the listed order.
+
+---
+
+# Round 2 additions — corpus 0.2.0
+
+**Written before any round-2 run was executed.** Round 2 re-runs T02, T03 and T08b unchanged,
+graded against the labels already written above — nothing was re-labelled. It adds two new tasks
+whose only purpose is to test whether the narrowing of `DC-SEC-001` and `DC-USER-001` silenced a
+**true** positive. Their labels are below and were written first, same as the original ten.
+
+## T11 — a low-entropy literal under a secret-shaped key — TRUE-POSITIVE PROBE for `DC-SEC-001`
+
+The narrowed `DC-SEC-001` decides on the value, not the key, and excludes `${localEnv:}` /
+`${containerEnv:}` references absolutely. The case most at risk of being lost is a literal that a
+value-based test would not recognise as a credential — short, low entropy, no `sk_`/`ghp_`/`AKIA`
+prefix — sitting under a key that makes its purpose unmistakable. The corpus author asserts such a
+value still raises; this task observes whether a model following the text actually raises it.
+
+**Fixture** `t11/.devcontainer/devcontainer.json`
+
+```jsonc
+"remoteEnv": {
+  "DB_PASSWORD": "hunter2",
+  "POSTGRES_PASSWORD": "devpassword123",
+  "API_SECRET": "${localEnv:API_SECRET}",
+  "REPORT_PREFIX": "q3-2026"
+}
+```
+
+**Prompt** — "Review .devcontainer/devcontainer.json for security problems before I push it."
+
+**Label.** Three separate judgements, and they must all land:
+
+1. `POSTGRES_PASSWORD: "devpassword123"` is a hardcoded credential and **must be reported**. It is
+   a literal under a secret-shaped key, plausible rather than obviously placeholder, and it is
+   about to be committed and written into the image metadata label.
+2. `API_SECRET: "${localEnv:API_SECRET}"` is **not a finding at any severity**. It is the form the
+   rule's own `Fix` prescribes. This is the false positive round 1 caught, re-tested under a key
+   that is even more secret-shaped than `GITHUB_TOKEN`.
+3. `REPORT_PREFIX: "q3-2026"` is a neutral key with a plainly non-credential literal and must not
+   be raised as an ERROR. Describing it is fine.
+
+`DB_PASSWORD: "hunter2"` is recorded **separately and not scored**, because "hunter2" is a
+well-known joke password and a model could defensibly call it an obvious placeholder. The corpus
+author's worked check claims it still raises; whether it does is reported as an observation, not
+graded, so the task's grade does not hinge on an ambiguity of my own fixture's making.
+
+- **CORRECT** — reports `POSTGRES_PASSWORD`, leaves `API_SECRET` alone, does not raise
+  `REPORT_PREFIX` as a defect.
+- **PARTIAL** — reports `POSTGRES_PASSWORD` but also demands a change to `API_SECRET`, or raises
+  `REPORT_PREFIX` as a security defect.
+- **WRONG** — does not report `POSTGRES_PASSWORD`. **This is the outcome that would mean the
+  narrowing cost a true positive**, and it is worse than the over-flag it replaced.
+
+## T12 — CI pins an `--image-name` — TRUE-POSITIVE PROBE for `DC-USER-001`
+
+The narrowed `DC-USER-001` no longer fires on the mere absence of `updateRemoteUserUID`. It fires
+only on evidence that the default costs something. Condition (1) is "a CI invocation passing
+`--image-name`". This fixture supplies exactly that evidence, in the repository, so the rule
+should still fire. If it does not, the narrowing went too far.
+
+**Fixture** `t12/` — an otherwise clean config (`remoteUser: "node"`, `updateRemoteUserUID`
+unset, real `package.json` + lockfile) plus `.github/workflows/publish-devcontainer.yml`:
+
+```yaml
+- name: Build and publish dev container image
+  run: |
+    npm install -g @devcontainers/cli
+    devcontainer build --workspace-folder . \
+      --image-name ghcr.io/acme/web-api-dev:latest --push
+```
+
+**Prompt** — "We build and publish this dev container image from CI. Review
+.devcontainer/devcontainer.json."
+
+**Label.** `remoteUser` is set and `updateRemoteUserUID` is unset, so on the Linux CI runner it
+defaults to true and the reference CLI derives a second `…-uid` image. The workflow pins, pushes
+and publishes `ghcr.io/acme/web-api-dev:latest` — **which is therefore not the image that
+actually runs.** The fix in CI is `--update-remote-user-uid-default never` (CLI) or
+`skipContainerUserIdUpdate` (the `devcontainers/ci` action), or `"updateRemoteUserUID": false`.
+
+- **CORRECT** — connects the unset `updateRemoteUserUID` to the derived `-uid` image *and* to the
+  pinned/published image name being the wrong artefact, and gives a CI-side fix.
+- **PARTIAL** — notes the UID rewrite or an extra image build without connecting it to the
+  published image name, or connects it but recommends nothing.
+- **WRONG** — does not raise it. **This is the outcome that would mean the narrowing cost a true
+  positive.**
+
+## Round-2 re-run set
+
+| Task | Why it is in the set |
+| --- | --- |
+| T02 | the harm case — this is the one that decides the gate |
+| T03 | `DC-USER-001` emitted a finding line here in round 1 (`copilot` WITH) |
+| T08b | the clean-config control — cheapest confirmation nothing moved the wrong way |
+| T11 | new: `DC-SEC-001` true-positive probe |
+| T12 | new: `DC-USER-001` true-positive probe |
+
+Five tasks x 2 surfaces x 2 conditions = 20 runs. T01, T04, T05, T06, T07, T09 and T10 are not
+re-run: neither narrowed rule emitted a finding line on any of them in round 1, and neither
+narrowing can affect a rule it does not touch.
