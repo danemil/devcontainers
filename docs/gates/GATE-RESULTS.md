@@ -200,7 +200,54 @@ in Task 6's twelve. Its FP rate therefore cannot demote a rule; it gates a possi
 only. Record it as such rather than silently mapping it onto DC-FEAT-001/002/003.
 
 ## Gate E — blinded usefulness (firing rate, lift, harm) — runs after the draft skill exists
-STATUS: not run
+STATUS: RUN 2026-09-01 — **LIFT MET, HARM NOT ZERO. Phase 1 does NOT ship on this evidence.**
+Detail: `usefulness/tasks.md` (ten tasks with labels written before any run) and
+`usefulness/results.md` (per-run table, the three numbers, verbatim output).
+
+44 runs of 44 attempted, all exit 0 — 40 planned plus 4 re-runs of the false-positive control
+after its fixture was found defective. Run in a /tmp scratch repo, never in this one: this
+repository carries RESEARCH-BRIEF.md and 26 primary sources, so a WITHOUT arm here could answer
+every task from the research and produce a spurious zero lift. Five decoy skills were installed
+alongside, so selection had to discriminate.
+
+| Number | Result |
+|---|---|
+| FIRING RATE, `claude -p` | 10/10 = 100% |
+| FIRING RATE, `copilot -p` | 8/10 = 80% (missed T05, T10; both answered correctly anyway) |
+| FIRING RATE, VS Code agent mode | **NOT RUN** — no GUI automation. Not dropped from the denominator. |
+| LIFT | 6 of 10 tasks, **5 attributable** (T05 improved in a run where the skill never fired) |
+| LIFT by surface | copilot **5/10, net +5** (5 -> 10 correct); claude **1/10, net 0** (+T01, -T02) |
+| Correct totals | 18/20 WITH vs 13/20 WITHOUT |
+| HARM | **1 task** |
+
+Firing rate was the number the plan expected to disappoint. It did not.
+
+THE HARM CASE, and it is a real defect rather than a judgement call: on `claude -p`, task T02 went
+from correct to wrong. The skill emitted `DC-SEC-001 [SPEC] ERROR` against
+`GITHUB_TOKEN: ${localEnv:GITHUB_TOKEN}` — **the exact form that rule's own Fix prescribes**. The
+control arm got it right explicitly. Systematically: **4 of 16 emitted finding lines (25%) were
+false positives, all from two rules** — `DC-SEC-001`'s key-name clause, and `DC-USER-001`, which
+fires on the ABSENCE of an optional property whenever `remoteUser` is set.
+
+DECISION. The rule requires lift >= 3 of 10 AND harm = 0. Lift is met; harm is not. Both must
+hold, so this is the MIDDLE branch: fix, re-run, do not add rules, do not open the upstream PR.
+**This is not the Lift-0 branch. Rung 1 is not indicated.**
+
+FOUR FINDINGS THE LIFT NUMBER DOES NOT CAPTURE:
+- **Zero confidently wrong answers in the WITH arm; three in the WITHOUT arm.** The plan calls a
+  confident wrong answer worse than a miss, and this is arguably the strongest single result.
+- **The lift is almost entirely on the weaker surface.** On `claude -p` the base model PLUS A
+  SHELL already scores 8/10 — three control runs built real containers and ran the real
+  `devcontainer` CLI to check themselves. The skill's only claude win is a GitHub-side fact no
+  amount of shelling out reaches. The package's value concentrates where the agent cannot execute.
+- **A "nothing to find" fixture is near-unconstructible for an agent with repo-wide shell access.**
+  T08's clean config lacked a `package.json` its own config referenced, so both arms truthfully
+  flagged missing scaffolding. Rebuilt as T08b; T08 excluded.
+- Every per-task cell is n=1.
+
+NOT RUN, and it stays open: the `.github/instructions/` pointer sub-experiment the plan folds into
+this gate needs VS Code's silent inline-edit surface. **Task 9 must not assume the pointer works**,
+and its delete-if-inert rule cannot be evaluated yet.
 
 ## DECISIONS
 Phase 1 SHIPS only if Gate E shows lift on >= 3 of 10 tasks with zero harm cases.
