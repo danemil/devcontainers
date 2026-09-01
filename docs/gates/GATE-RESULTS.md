@@ -108,7 +108,7 @@ reads `.claude/skills/` is untested anywhere in this batch.
 ## Gate C — Copilot code review can shell out
 STATUS: RUN 2026-09-01 — **SELECTION PASS (channel residual), EXECUTION FAIL**.
 Detail: `gate-c.md` and `gate-c-selection.md` (SELECTION follow-up probe, 3 PRs, 2 skills, 1
-negative control).
+control arm).
 
 Observed on a fresh private throwaway repo, review posted **64 seconds** after the request:
 - SELECTION PASS. The review body contained the literal string `EXEC UNAVAILABLE`, which exists
@@ -126,10 +126,15 @@ SELECTION follow-up (`gate-c-selection.md`), which settles the task review's Cri
   never part of any PR diff, had its instruction followed and its marker `MARKER-QUOKKA-8801`
   emitted. Loading is **not** pinned to a skill named `code-review` at the footer's path. That
   alternative — the one that would have voided the SELECTION reading — is refuted.
-- **Negative control: the reviewer does not echo diff content.** `CONTROL-NO-SKILL-8803` was
-  literally inside a file in a reviewed diff and did **not** appear in that review. So markers that
-  do appear are not incidental regurgitation. This runs *in favour of* the original SELECTION
-  claim.
+- **Control arm — a baseline, and confounded.** `CONTROL-NO-SKILL-8803` was literally inside a file
+  in a reviewed diff and did **not** appear in that review, so marker-shaped strings do not appear
+  in this reviewer's output as a matter of course. It does **not** discriminate agent-skill
+  selection from ordinary repo-context reading: the control string differs from the positive
+  markers in *two* variables at once — location (in-diff vs out-of-diff) and instruction-status
+  (no imperative vs "you must state the following … verbatim") — and "follows imperatives in any
+  repo file it reads" predicts the whole observed pattern equally well. One observation, one PR,
+  review effort "Lite"; not a general non-echo rule. **Q1, not this arm, is what closes Critical
+  1's named alternative.**
 - **The footer is conditional, not decoration.** The "Add a `code-review` agent skill" link
   appeared on one review and was absent on two others in the same repo. `gate-c.md`'s original
   dismissal of it as "a generic UI affordance shown on every review" is empirically wrong and has
@@ -212,11 +217,12 @@ Settled by Gates A-C, carried forward — each bullet claims only what was obser
   exist, which is exactly what Gate C's own CAVEAT ON GENERALITY disclaims (MCP servers untested,
   review effort "Lite", one repo, one account).
 - **The code-review surface does load an arbitrarily-named skill from `.github/skills/`**
-  (`gate-c-selection.md`, observed: an out-of-diff `quokka-audit` SKILL.md's instruction obeyed;
-  plus a negative control showing the reviewer does not echo diff content). Two things ride with
-  it: whether that is skill *selection* or repo-context reading is unresolved, and **everything was
-  observed from `.github/skills/`, never from `.claude/skills/` — which is where this project ships
-  its skill.** Do not assume code review sees a `.claude/skills/` skill.
+  (`gate-c-selection.md`, observed: an out-of-diff `quokka-audit` SKILL.md's instruction obeyed).
+  One observation per arm, review effort "Lite" throughout. Two things ride with it: whether that
+  is skill *selection* or repo-context reading is unresolved — the probe's control arm is
+  confounded and does not settle it — and **everything was observed from `.github/skills/`, never
+  from `.claude/skills/` — which is where this project ships its skill.** Do not assume code review
+  sees a `.claude/skills/` skill.
 
 ## CLEANUP — COMPLETE
 All throwaway probe repos have been deleted. The `gh` token originally lacked the `delete_repo`

@@ -169,10 +169,13 @@ or configure MCP servers for context-aware, tailored reviews.
   - An **arbitrarily-named** skill (`quokka-audit`) committed as repo state, never part of
     a PR diff, had its instruction obeyed and its marker `MARKER-QUOKKA-8801` emitted in
     the review. Loading is **not** pinned to the `code-review` name or path.
-  - A **negative control** shows the reviewer does not echo marker-shaped strings out of
-    changed files: `CONTROL-NO-SKILL-8803` was literally in a reviewed diff and did not
-    appear in the review. So "the model merely parroted a string it was shown" is a weak
-    deflation of the `EXEC UNAVAILABLE` observation.
+  - A **control arm** adds a baseline, not a discriminator: `CONTROL-NO-SKILL-8803` was
+    literally in a reviewed diff and did not appear in that review, so marker-shaped
+    strings do not appear in this reviewer's output as a matter of course. It is
+    **confounded** — the control string differs from the positive markers in both location
+    (in-diff vs out-of-diff) *and* instruction-status (no imperative vs "you must state
+    the following … verbatim"), so it cannot separate agent-skill selection from ordinary
+    repo-context reading. One observation, review effort "Lite".
   - **Still open:** whether the load is description-matched skill selection or whole-file
     repo-context ingestion (the follow-up's two skills carried identical generic
     descriptions, so it cannot discriminate); and whether the reviewer reads the PR head

@@ -1,8 +1,9 @@
 # Gate C follow-up — does Copilot code review load an ARBITRARILY-NAMED skill?
 
-Follow-up probe to `gate-c.md`, run by the controller on 2026-09-01 to close the
-discriminator the task review demanded (Critical 1: "is the SELECTION PASS skill selection,
-or just repo-context reading, and is loading pinned to the `code-review` name?").
+Follow-up probe to `gate-c.md`, run by the controller on 2026-09-01 against the task review's
+Critical 1 ("is the SELECTION PASS skill selection, or just repo-context reading, and is loading
+pinned to the `code-review` name?"). It answers the second half of that question and leaves the
+first half open — see RESIDUAL 3.
 
 Raw evidence: `.superpowers/sdd/2026-08-31-devcontainer-agent-package/task-4-selection-rawdata.md`.
 Probe repo: `danemil/probe-select-gatec` (private, **deleted** after collection). Skills were
@@ -46,7 +47,13 @@ Commit / PR / review timeline (UTC, all 2026-09-01), reconstructed from the raw 
 04:58:46           PR 3 review SUBMITTED
 ```
 
-Head-branch trees (each branch is a child of its recorded base sha):
+Head-branch trees — **RECONSTRUCTED, NOT OBSERVED.** The raw record captures each PR's *base sha
+at creation* and nothing else about its branch: no head sha, no parent, no per-branch tree
+listing. The column below assumes each branch is a child of its recorded base sha, which the
+timeline makes near-certain (PR 2 was created 11s after `927a3a6` landed, PR 3 13s after
+`872b426`) but which was never checked. To have observed it, the probe would have needed a
+`gh api repos/.../git/trees/<head-sha>?recursive=1` per branch, or the head sha plus its parent.
+Treat this whole column as inference:
 
 | PR | arm | head tree contains | `main` tip at review time contains |
 |---|---|---|---|
@@ -54,29 +61,56 @@ Head-branch trees (each branch is a child of its recorded base sha):
 | PR 2 | arm 1 | `quokka-audit` only | `quokka-audit` **and** `code-review` |
 | PR 3 | arm 2 | `quokka-audit` **and** `code-review` | `quokka-audit` **and** `code-review` |
 
-So:
+So (taking the reconstructed column at face value):
 
 - If the reviewer loads skills from the **PR head branch**, the arms *are* separated and the
   intended one-skill-per-arm comparison exists.
 - If it loads from **`main`'s tip**, arms 1 and 2 saw an identical skill set and the intended
   comparison does not exist at all.
 
-The evidence points both ways at once and cannot be reconciled here (see Q2 and the weak signal
-below): the footer behaviour is most simply explained by `main`-tip evaluation, while the marker
-emitted on PR 2 is most simply explained by head-branch evaluation. **Which-tree is UNRESOLVED.**
+Three observations bear on which, and they do not all point the same way:
+
+1. **Toward head-branch (or request-time snapshot):** PR 2 emitted `MARKER-QUOKKA-8801` and not
+   `MARKER-CODEREVIEW-8802`. At PR 2's review time `main` carried *both* skills, so a `main`-tip
+   reader saw both; its branch carried only `quokka-audit`.
+2. **Toward head-branch (or request-time snapshot) — the control arm, and it cuts against the
+   reading this file otherwise leans on, which is why it is stated here:** PR 1 emitted **no**
+   `MARKER-QUOKKA-8801`, even though `quokka-audit` landed on `main` at 04:54:02 and PR 1's review
+   was not submitted until 04:54:43 — 41 seconds later. Under a strict `main`-tip-at-submission
+   reading it should have appeared. It is a **weak** argument: PR 1's review was *requested* at
+   04:53:49, 13 seconds *before* `quokka-audit` landed, so a snapshot taken at request time
+   explains the absence without saying anything about which tree is read. It is a 41-second race
+   either way.
+3. **Toward `main`-tip — but only under one reading of the footer:** the "Add a `code-review`
+   agent skill" link was absent on PR 2, whose *branch* contained no `code-review` skill while
+   `main` did. This is evidence for `main`-tip evaluation **only under Q2 reading (a)** (the link
+   is suppressed once `.github/skills/code-review/SKILL.md` exists). Under Q2 reading (b) (the
+   link signals that no skill was loaded), PR 2's suppression is fully explained by head-branch
+   evaluation with `quokka-audit` loaded, and this observation stops arguing for `main`-tip at
+   all. The dependency is two judgements deep and is stated here so no reader inherits it
+   silently.
+
+**Which-tree is UNRESOLVED.** On balance the observations lean toward head-branch or request-time
+evaluation *of skill loading* — (1) and (2) both point there, and (3) only counts against it under
+one of the two live footer readings. There is a single hypothesis under which every observation
+coheres without tension: skills are loaded from the PR head branch, while the footer's link is
+computed against the default branch (its URL is literally `/new/main?filename=…`, so `main` is
+where it would create the file). **Nothing in this probe tests that hypothesis**; it is recorded
+as a candidate for a future probe, not as a finding, and the verdict stays UNRESOLVED.
 
 A second, independent confound: each arm's canary file *names the skill(s)* it is testing in
 plain prose inside the diff. PR 2's canary names `quokka-audit`; PR 3's canary names both and
 says it is testing whether `code-review` is "privileged". A reviewer steered by the diff text
 rather than by the skill set would produce the same marker pattern. This does **not** touch Q1
-(the marker strings themselves are not in any diff — see the negative control), but it does
+(the marker strings themselves are in no diff — checked against the whole raw record), but it does
 weaken any claim about *which of two present skills gets picked*.
 
 **What the probe can still prove despite this:** that a skill named something other than
-`code-review` is loaded and obeyed (Q1), and that the reviewer does not echo marker-shaped
-strings out of the diff (negative control). **What it cannot prove:** which tree the skill is
-read from, whether `code-review` is privileged when both exist, or whether the load happens via
-the agent-skills subsystem or via ordinary repo-context reading.
+`code-review` is loaded and obeyed (Q1). **What it cannot prove:** which tree the skill is read
+from, whether `code-review` is privileged when both exist, or whether the load happens via the
+agent-skills subsystem or via ordinary repo-context reading. The control arm contributes a
+baseline, not a discriminator — see its section below for exactly what it does and does not
+license.
 
 ---
 
@@ -246,26 +280,50 @@ whole-file ingestion. For the project's purposes the distinction is narrow — e
 arbitrarily-named `SKILL.md` in `.github/skills/` reaches the reviewer's context from outside the
 diff and its directives are followed — but it is not zero, and it is recorded as open.
 
-## The negative control — the most valuable result in this probe
+## The control arm — a baseline, and it is confounded
 
-**PR 1's diff contained `control-canary.txt`, whose literal content includes the string
+**Observed: PR 1's diff contained `control-canary.txt`, whose literal content includes the string
 `CONTROL-NO-SKILL-8803`. The review reported "Files reviewed: 1/1 changed files". The review body
 does not contain `CONTROL-NO-SKILL-8803`.**
 
-This is the discriminator the task review demanded and could not find in the original Gate C
-evidence. It establishes that the reviewer does **not** simply echo marker-shaped strings it
-encounters in changed files. A marker appearing in a review body is therefore evidence of
-something more than incidental regurgitation of text the model was shown.
+**The confound, stated first because it bounds everything below.** The control string differs
+from the two positive markers in **two variables at once**, not one:
 
-Consequence for the original Gate C reading: this runs **in favour of** the Gate C SELECTION
-claim, not against it. Gate C observed `EXEC UNAVAILABLE` — an invented string present only in
-`probe-exec/SKILL.md` — appearing in a review whose diff touched only `exec-canary.txt`. The
-"the model just parroted a string it happened to read" deflation is now empirically weaker: shown
-a marker string *in the diff itself*, this reviewer did not parrot it. What it reproduces are
-strings it was *instructed* to reproduce.
+| | location | carries an imperative to emit it? | emitted? |
+|---|---|---|---|
+| `CONTROL-NO-SKILL-8803` | **in** the reviewed diff | **no** — the file only says `Marker: CONTROL-NO-SKILL-8803` | no |
+| `MARKER-QUOKKA-8801` | **out** of the diff (a `SKILL.md`) | **yes** — "you must state the following exactly once … verbatim, on its own line" | yes |
 
-The control is one observation on one PR, at review effort "Lite". It shows the reviewer did not
-echo *this* string on *this* review; it is not a proof of a general non-echo rule.
+Because location and instruction-status move together, the arm cannot attribute the difference in
+outcome to either one.
+
+**What it licenses:** that *an uninstructed marker string sitting in a reviewed diff was not
+echoed*, and — as a baseline — that marker-shaped strings do not simply appear in this reviewer's
+output as a matter of course: a review of a structurally identical canary-file PR with no skill
+present came back with no marker at all. That is a real, if modest, sanity check on the probe
+harness, and it is the honest extent of it.
+
+**What it does NOT license, and an earlier draft of this file wrongly claimed it did:**
+
+- It is **not** a discriminator between the two channels Critical 1 named. "The reviewer reads
+  repository files as ordinary context and follows imperatives it finds in them" (route 2)
+  predicts the entire observed pattern — control not echoed, both instructed markers echoed —
+  exactly as well as "the agent-skills subsystem selected the skill" (route 1). Nothing here
+  separates them.
+- It does **not** establish "what it reproduces are strings it was instructed to reproduce" as a
+  general rule. To test that, an arm would have to put an imperative *in the diff itself* and see
+  whether it is obeyed. No arm did.
+- The hypothesis it does kill — "the model echoes any marker-shaped string it is shown" — was
+  **not the deflationary reading Critical 1 raised**, and was nobody's position: in Gate C itself
+  the SKILL.md was likewise out of the diff, so echoing-what-you-see was never the competing
+  explanation there either.
+
+**Q1 is what carries Critical 1, not this arm.** The work that kills Critical 1's named
+alternative — that Copilot loads a skill only at the fixed `code-review` name and path — is the
+`quokka-audit` result above. This section is scoped support and a baseline; it is not the pivot.
+
+Scope: one observation, one PR, review effort "Lite". It shows this reviewer did not echo *this*
+string on *this* review. It is not proof of a general non-echo rule.
 
 ## Q2 — ANSWER: NUANCED. The footer is conditional, but on what is unresolved
 
@@ -294,8 +352,10 @@ pre-filled create-file link for one specific path, and its presence/absence trac
 path's existence with no exceptions in the data. (b) requires the UI to compute a
 skill-invocation fact and then express it by hiding a *file-creation* affordance, which is a
 less natural design. But (a) has a cost of its own: it requires the footer to be evaluated
-against `main`, since `code-review/SKILL.md` was not in PR 2's head-branch tree — which drags in
-the unresolved which-tree question above.
+against `main`, since `code-review/SKILL.md` was not in PR 2's head-branch tree (reconstructed,
+not observed — see DESIGN FLAW) — which drags in the unresolved which-tree question above. Note
+the direction of that dependency: observation 3 in the DESIGN FLAW section counts as evidence for
+`main`-tip evaluation **only under (a)**; under (b) it counts for nothing either way.
 
 Consequence for the original Gate C reading, under each:
 
@@ -343,11 +403,19 @@ skill, either test `.claude/skills/` there or ship a copy under `.github/skills/
 
 **2. Which tree the reviewer loads skills from — PR head branch or default-branch tip — is
 UNRESOLVED**, and the probe's own arms are not cleanly separated because of it (see DESIGN FLAW).
+The balance of the three observations there leans toward head-branch or request-time evaluation,
+but the per-branch trees themselves are **reconstructed from base shas plus the timeline, never
+observed**, and the one observation pointing the other way depends on a particular reading of the
+footer.
 
 **3. The loading channel is UNRESOLVED**: agent-skills selection matched on `description`, versus
 ordinary out-of-diff repo-context reading. Both probe skills had identical generic descriptions,
-so this probe cannot discriminate. What is observed either way is out-of-diff reach plus
-directive compliance.
+so this probe cannot discriminate; neither can the control arm, which varies location and
+instruction-status together. What is observed either way is out-of-diff reach plus directive
+compliance. **The cheapest test that would settle it is an arm whose *diff* carries an imperative
+to emit a marker** — if that is obeyed, route 2 (obeys imperatives in any file it reads) is live;
+if only out-of-diff `SKILL.md` imperatives are obeyed, route 1 gains real support. No arm did
+this.
 
 **4. Privileging of the `code-review` name when multiple skills match is NOT established**
 (one observation, two confounds).
