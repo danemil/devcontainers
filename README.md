@@ -31,19 +31,6 @@ what was measured from what was assumed. Where a thing is unproven, this file sa
 
 ## Install
 
-> **Prerequisite — the two commands below do not work yet, for two independent reasons.**
-> The repository is **private**, so an unauthenticated fetch of it returns 404 and
-> `npx skills add danemil/devcontainers` cannot resolve it for anyone but the owner. And this
-> work sits on an **unpushed branch** (`devcontainer-agent-package`); nothing has been pushed
-> and the skill is not on `main`, so even with the repository public the documented command
-> would not find it. **Both commands become valid once the repository is public and this
-> branch is merged and pushed.** Whether the repository is published is the owner's decision
-> and has not been made — this file does not predict it. Until then the only route that works
-> is **Manual**, below, from a local checkout.
->
-> The commands themselves are correct in form and are the ones Gate A measured. What is
-> missing is a reachable repository, not a working command.
-
 ### The supported channel
 
 ```sh
@@ -87,7 +74,7 @@ Gate B observed the Copilot CLI listing, selecting and resolving `references/` f
 with no `--allow-tool` flag.
 
 To use it **outside** that workspace, the only Copilot path that delivers the corpus is two
-steps — the clone depends on the prerequisite at the top of this section:
+steps:
 
 ```sh
 git clone https://github.com/danemil/devcontainers
@@ -97,6 +84,14 @@ copilot skill add ./devcontainers/.claude/skills/devcontainers   # directory for
 Do **not** use `copilot skill add <path>/SKILL.md`. The file form copies that one file and
 leaves `references/rules.md` behind, which on this package means the agent keeps the audit
 procedure and loses every rule it is supposed to apply.
+
+**What is established, and what is not.** Gate A measured `npx skills add` against a scratch
+probe repository, and the files here are now publicly fetchable — `SKILL.md`,
+`references/rules.md` and `README.md` all return 200 unauthenticated. **A first real install of
+this repository has not been run.** Doing so is a separate act with a real side effect — it
+writes into the runner's global skills directory — so nothing here should be read as an
+end-to-end test. The channel was measured; this repository's reachability was measured; the
+composition of the two has not been.
 
 **Why this matters more than an install-mechanics footnote.** Gate E found the package's
 lift is almost entirely on the Copilot surface — on `claude -p` the base model plus a shell
@@ -195,9 +190,9 @@ of two ways — move content into a reference file the mode **already loads**, o
 overage and record it here. Never by a reflow.
 
 Moving content into a reference a mode does **not** load is a correctness change wearing a
-budget change's clothes. The thirteen-item not-label-storable list under "My changes aren't
-taking effect" is fenced **non-movable** for exactly that reason: AUDIT's bucket table reads it,
-and AUDIT does not load `spec-facts.md`. `SKILL.md`'s own editing note says the same thing at
+budget change's clothes. The not-label-storable list under "My changes aren't taking effect"
+is fenced **non-movable** for exactly that reason: AUDIT's bucket table reads it, and AUDIT
+does not load `spec-facts.md`. `SKILL.md`'s own editing note says the same thing at
 the point of temptation.
 
 One thing worth stating plainly, because it is the first time in this project that a recorded
@@ -285,6 +280,15 @@ check independent of it.
 
 The portability grep is deliberately **not** fence-stripped: the syntax it hunts for lives
 inside fences, which is exactly where it would hide.
+
+**This grep is also what licenses the word "twelve" everywhere else in this file.** A count
+written into prose is a liability exactly when nothing checks it — that is how a list here
+silently went from twelve items to thirteen. The rule count is the one number this README
+states repeatedly, and it is stated only because the check above prints it: if a rule is added
+or retired, grep 2 stops printing 12 before anyone reaches the prose. Every other count in this
+file is either a measurement of something that already happened, or an inline enumeration that
+carries its own members. **Do not add a count that neither a check nor its own list can
+verify.**
 
 ```sh
 # 3. Version agreement — the two files must not drift.
@@ -691,8 +695,16 @@ Stated so nobody is surprised by an absence:
 
 - `docs/RESEARCH-BRIEF.md` — the dated, adversarially fact-checked research the design rests
   on, with an `ERRATA` section at the end correcting it rather than rewriting it in place.
-- `docs/sources/` — 26 cached primary sources, so the citation pass can run offline for the
-  nine rules that do not need a live fetch.
+- `docs/sources/` — **25 of 26** cached primary sources: the Dev Container specification, the
+  reference CLI, containers.dev and this project's own research notes, all of which are fine to
+  redistribute. **One is deliberately local-only.** `devcontainer.md` is a verbatim copy of an
+  Anthropic documentation page; caching a third party's page for offline verification and
+  redistributing it from a public repository are different acts, so it is gitignored. Nothing
+  depends on it — `DC-CLAUDE-001` cites the live URL, which the citation pass resolved, and no
+  file in the package references the cached copy. The one practical consequence, stated rather
+  than left to be discovered: a fresh clone can re-run the citation pass offline for **eight**
+  of the twelve rules rather than nine, and `DC-CLAUDE-001` joins the three that need a live
+  fetch.
 - `docs/gates/` — the empirical gate results, with `gate-d.md` carrying the Gate D
   search-phase numbers, the shard method and the rate-limit accounting. **The expensive
   harvest artefacts ship with the repository**: `.gitignore` excludes `docs/gates/.harvest/`,
