@@ -30,6 +30,10 @@ The tag is the only thing stopping an `OPINION` being read as specification, and
 quoted out of a DEBUG or AUTHOR answer carries no such warning. If you could not open the
 corpus, say the tier is unknown rather than dropping it.
 
+**Never descend into `customizations.*` when checking for unknown properties, in any mode.**
+That namespace is deliberately open — no registry, no schema constraint, any tool may claim a
+key — so a check that walks into it reports every legitimate third-party key as unknown.
+
 ---
 
 ## Before any mode: find the config
@@ -124,10 +128,10 @@ concluding the image is clean. Never write a summary line — "no security issue
 
 Read and report. **Do not edit any file in this mode.**
 
-**Load `references/rules.md` now.** The twelve rules, their severities, tiers, sources, `Detect`
-and `Fix` live there and nowhere else. Never restate a rule from memory or reason about what
-one "probably" says — open the file. If it cannot be read, say so and stop: an audit from a
-remembered corpus is worse than no audit.
+**Load `references/rules.md` now.** The twelve rules, their severities, tiers, sources,
+`Detect` and `Fix` live there and nowhere else. Never restate one from memory — open the file.
+If it cannot be read, say so and stop: an audit from a remembered corpus is worse than no
+audit.
 
 ### Procedure
 
@@ -149,9 +153,8 @@ One header line, then findings, then the not-checked block, then the tally.
 devcontainers · AUDIT · .devcontainer/devcontainer.json · rules corpus <version>
 ```
 
-Take the corpus version from `references/rules.md` if it carries one, else omit it rather than
-guess. Never print this file's own `corpus_version` as the corpus's — nothing keeps them in
-step.
+Take the corpus version from `references/rules.md` if it carries one, else omit it. Never print
+this file's own `corpus_version` as the corpus's — nothing keeps them in step.
 
 Every finding line carries the rule ID and the tier tag. No exceptions. The shape:
 
@@ -171,9 +174,8 @@ separate `Observations` heading, labelled as outside the corpus, with no severit
 
 ### Every rule lands in exactly one bucket
 
-Each of the twelve rules ends up in exactly one of four places, totalling twelve — reconcile
-before you emit. A rule silently missing is the same failure as "not checked" reading as
-"passed".
+Each of the twelve rules ends up in exactly one of four places — reconcile before you emit. A
+rule silently missing is the same failure as "not checked" reading as "passed".
 
 | Bucket | Use it only when |
 | --- | --- |
@@ -283,9 +285,7 @@ flag exists, without a source you can point at — the spec is at
   from an accident.
 - **Change only what was asked.** Do not reorder keys, reformat, strip comments or "tidy" the
   rest of the file (refusal 6). If something else is wrong, say so; do not fix it unasked.
-- **Do not invent property names.** Check the schema facts in `references/spec-facts.md`, and
-  when checking for unknown properties never descend into `customizations.*` — that namespace
-  is intentionally open, has no registry or schema constraint, and any tool may claim a key.
+- **Do not invent property names.** Check the schema facts in `references/spec-facts.md`.
 - **Prefer an image plus Features over a Dockerfile** when a maintained Feature exists, a
   Dockerfile when none does. `[OPINION]`
 - **Pin versions you add.** An untagged Feature or image means `latest`, and a non-reproducible
@@ -331,14 +331,12 @@ Start here and add only what the user needs:
 ```
 
 Every further property should answer a question the user actually asked; a config carrying
-`runArgs`, `mounts`, `postAttachCommand` and a Dockerfile because it was copied from somewhere
-is harder to debug than one that does not.
+`runArgs`, `mounts` and a Dockerfile because it was copied from somewhere is harder to debug.
 
-This starting point sets `remoteUser` and leaves `updateRemoteUserUID` unset, which is a
-condition `DC-USER-001` detects — deliberate, but it means the starting point is not
-audit-clean by construction. Open that rule, say what leaving the default does on the user's
-platform, and let them decide. Never hand over a config that would produce a finding without
-saying that it would.
+This starting point sets `remoteUser` and leaves `updateRemoteUserUID` unset, a condition
+`DC-USER-001` detects — deliberate, but it means the starting point is not audit-clean by
+construction. Open that rule, say what leaving the default does, and let them decide. Never
+hand over a config that would produce a finding without saying so.
 
 ---
 
@@ -438,6 +436,9 @@ ever did — read it before assuming a bug. Two items stay here because they rou
    load `spec-facts.md`, so do not move it. Not label-storable: `initializeCommand`, `image`,
    `build.*`, `dockerComposeFile`, `service`, `runServices`, `appPort`, `runArgs`,
    `workspaceMount`, `workspaceFolder`, `features`, `overrideFeatureInstallOrder`.
+   That is the set this package treats as never label-storable, derived from the spec's merge
+   table rather than its prose property list. **Absence from it is not proof a property is
+   storable**: for anything on neither side, read the merged configuration rather than infer.
    **`mounts` is not on that list — it does travel, and it merges** (collected, last source
    wins), so a `mounts` entry that appears not to apply is more likely being overridden than
    ignored. `references/spec-facts.md` carries the full merge table.
@@ -483,8 +484,7 @@ This is `DC-ENV-001` far more often than anything else. Start there.
   namespace, the CLI surface. Loaded in AUTHOR and DEBUG.
 
 Each mode says what to do when a file it needs is missing — AUDIT stops, AUTHOR and DEBUG
-narrow. In all three: say it was unavailable, and never reconstruct its contents from memory
-and present the result as cited.
+narrow. In all three: say it was unavailable, and never reconstruct it from memory as cited.
 
 **Editing note.** Moving content into a reference file the mode *already loads* is free only if
 the mode's degradation note stays true afterwards — DEBUG promises "the symptom lists stand on
