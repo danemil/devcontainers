@@ -1,0 +1,366 @@
+# Phase 0 gate results
+
+Each gate is answered EMPIRICALLY. "Documented as" is not an answer; "I ran it and observed" is.
+**Record verbatim command output, not a summary of it.**
+
+Detail files: `gate-a.md`, `gate-b.md`, `gate-c.md`, `gate-c-selection.md` (Gate C's SELECTION
+follow-up probe). This file is the index and the decision record.
+
+## Gate A — installer fidelity
+STATUS: RUN 2026-09-01 — MIXED. Detail: `gate-a.md`.
+
+| Installer | subdirs | exec bit | frontmatter untouched |
+|---|---|---|---|
+| `npx skills add <owner>/<repo>` | PASS | PASS | PASS (byte-identical) |
+| `gh skill install <owner>/<repo> <skill>` | PASS | **FAIL** (755 -> 644) | **FAIL** (injects `metadata:`) |
+| `copilot skill add` | **FAIL** (file form drops `references/` and `bin/`; no repo-ref form exists) | n/a | PASS (file form) |
+
+Observed, load-bearing:
+- The brief's guessed command names were wrong for two of three. `copilot skill add` accepts only a
+  local file, a local directory, or an HTTPS URL to a single `SKILL.md` — there is **no
+  `owner/repo` form at all**. Its directory form is a non-copying pointer written into
+  `~/.copilot/settings.json` -> `skillDirectories`; its file form copies `SKILL.md` only and
+  **silently drops `references/` and `bin/`**.
+- `gh skill install` injects a nested `metadata:` block into the installed `SKILL.md`
+  (`github-path`, `github-ref`, `github-repo`, `github-tree-sha`) and reorders keys.
+- `npx skills add ... -a claude-code` **printed an install-summary line claiming a copy to
+  `~/.agents/skills/probe-devc`, and never created it** — the file landed only in
+  `~/.claude/skills/`. Load-bearing because Gate B's quoted discovery list makes
+  `~/.agents/skills/` a *Copilot personal skills source*: an installer that reports writing there
+  and does not is exactly what breaks a "one install serves both hosts" story. One observation.
+- Two of `copilot skill add`'s three documented source forms were run. The HTTPS-URL-to-a-single-
+  `SKILL.md` form was **not run**; its single-file scope is taken from `--help`, not observed.
+
+CONSEQUENCE. `npx skills add` is the only faithful repo-ref channel and is the reference
+implementation for any Phase 2 `bin/`. A strict "frontmatter is exactly these four keys" CI gate —
+four being **the set we ship**, not a claim about the legal set (the portable set is five; see
+README, "The frontmatter contract") — **must run against the source file, not an installed copy**
+— `gh skill install` would fail it every time. Phase 2's `bin/` is not installable-and-runnable
+through any advertised channel without an extra step: clean on `npx skills add`, needs a documented
+`chmod +x` after `gh skill install`, and is unreachable via `copilot skill add`, which cannot
+fetch a repo. If Phase 2 happens, publish to npm with a `bin` entry and make `npx <pkg> audit`
+the primary path.
+
+### Gate A addendum — does Copilot accept an AUTHOR-WRITTEN `metadata:` block?
+STATUS: RUN 2026-09-01 — **ACCEPTED on Copilot CLI 1.0.82, project scope** (see RESIDUAL below).
+
+Gate A as specified did not settle the Global Constraint it was supposed to settle. It observed
+`gh` *injecting* a `metadata:` block, which is a different question from whether Copilot *accepts*
+one the author wrote. A separate two-skill probe (`meta-canary` with the project's intended
+four-key frontmatter vs. `plain-canary` without) closed it: `meta-canary` was listed by
+`copilot skill list`, selected, fired, and returned its marker with **zero warnings on stdout or
+stderr**, behaviourally identical to the control.
+
+RESIDUAL. Observed on **Copilot CLI 1.0.82 only, for a project-scoped skill in `.claude/skills/`**.
+Untested: `.github/skills/`, VS Code Copilot Chat, Copilot code review, and **the Skills API path,
+where the plan states any key outside the portable set is a hard error** — i.e. the strictest
+validator is the one never probed. Supported claim: *"accepted by Copilot CLI 1.0.82 in project
+scope, with no warning on any stream"*, not *"accepted by Copilot"*.
+
+CONSEQUENCE. **The shipped frontmatter stays four keys** — `name`, `description`, `license`,
+`metadata` — on the evidence above, which is Copilot CLI project scope only. The fallback of
+moving `corpus_version` into the body and dropping to three keys is NOT triggered. Re-test before
+relying on this if the Skills API path becomes a shipping target.
+
+OPEN QUESTION for Task 12 (not blocking Phase 1): our `SKILL.md` ships its own `metadata:` block
+holding `corpus_version`. `gh skill install` writes its own `metadata:` block. Whether it MERGES
+into or CLOBBERS an existing one was not tested — the Gate A probe skill had no `metadata:` key.
+
+TRIPWIRE on that deferral. It does not block Phase 1, but it **does** block two specific things,
+and neither may ship ahead of it:
+1. **Any installer guidance that promises `metadata:` is preserved through `gh skill install`.**
+   We observed injection into a file that had no `metadata:` key; we did not observe what happens
+   to one that does. Do not document preservation as a property.
+2. **Any Phase 2 check that reads `corpus_version` from an INSTALLED copy.** If `gh skill install`
+   clobbers rather than merges, `corpus_version` is simply gone from the installed file and the
+   check fails or silently reads nothing. Read `corpus_version` from the source file, or close this
+   question first.
+
+## Gate B — Copilot resolves references/ from .claude/skills/
+STATUS: RUN 2026-09-01 — **PASS** on Copilot CLI and on the Claude Code control. Detail: `gate-b.md`.
+
+| Surface | discovery | resolution |
+|---|---|---|
+| Copilot CLI (1.0.81, carried from an earlier probe — **not re-measured** in this run) | PASS | PASS |
+| Claude Code (control) | PASS | PASS |
+| VS Code Copilot Chat agent mode | NOT RUN | NOT RUN |
+
+Observed: `copilot skill --help` documents `.claude/skills/` as a native **Project** discovery
+source. `copilot skill list` listed the probe skill. 4/4 prompt phrasings fired it and returned the
+canary marker verbatim — including two phrasings that did not use the description's exact trigger
+phrase. **No `--allow-tool` or `--allow-all-tools` flag was needed**; `-p '...' -s` alone sufficed.
+(The *reason* — that reading a file in the working directory is auto-approved under the CLI's
+default manual permission mode — is **documentation, read from `copilot help config`, not observed
+cause.** What was observed is that no flag was required.) Step 3's `chat.agentSkillsLocations`
+escape hatch was not needed and has no Copilot CLI equivalent (checked `copilot help config` and
+`copilot help environment`).
+
+CONSEQUENCE. Level-3 progressive disclosure works from `.claude/skills/` **for a project-scoped
+skill sitting in the CLI's working directory**. **The twelve rules stay in `references/rules.md`.**
+The FAIL fallback — rules into the SKILL.md body, ~380-line budget, `spec-facts.md` demoted to a
+URL list — is NOT triggered.
+
+RESIDUAL 1. The VS Code GUI arm is unverified by direct observation and is recorded as NOT RUN, not
+inferred. A human should run it: open the workspace, Copilot Chat in Agent mode, type
+`run the reference canary`, and record whether `PELICAN-7731` or `CANARY UNREACHABLE` comes back.
+
+RESIDUAL 2. **The probe cannot distinguish skill-relative resolution from ordinary
+working-directory file reading.** The skill lived inside the CLI's CWD, so an agent that just read
+a path under its own CWD yields an identical PASS. For the project's design (skill checked into the
+repo) the two are operationally the same and the PASS is usable. For an **installed** copy
+(`~/.claude/skills`, `~/.copilot/skills` — what Gate A's installers produce) the reference file is
+outside the workspace and neither the resolution nor the no-flag result carries over — and Gate A
+observed that `copilot skill add`'s copying form never lands `references/` at all.
+
+RESIDUAL 3. This is a Copilot **CLI** result. It does not transfer to Copilot **code review**,
+which was only ever probed from `.github/skills/` (Gates C and C-selection). Whether code review
+reads `.claude/skills/` is untested anywhere in this batch.
+
+## Gate C — Copilot code review can shell out
+STATUS: RUN 2026-09-01 — **SELECTION axis: REACH PASS, MECHANISM UNRESOLVED. EXECUTION FAIL**.
+Detail: `gate-c.md` and `gate-c-selection.md` (SELECTION follow-up probe, 3 PRs, 2 skills, 1
+control arm).
+
+Observed on a fresh private throwaway repo, review posted **64 seconds** after the request:
+- SELECTION — REACH PASS (mechanism unresolved). The review body contained the literal string
+  `EXEC UNAVAILABLE`, which exists
+  nowhere in the setup except inside the probe skill's own fallback instruction. The PR diff
+  touched only `exec-canary.txt` and the review reported "Files reviewed: 1/1 changed files", so
+  **the SKILL.md's content reached the reviewer from outside the diff and shaped its output.**
+- EXECUTION FAIL. The marker `EXEC-OK-4412` never appeared. Copilot emitted the skill's own
+  documented "I cannot run commands" fallback string instead. **That string is the SKILL.md
+  author's prose, not observed execution** — what was observed is a string appearing, not a
+  command being attempted and failing. Do not write "Copilot code review attempted execution and
+  failed." It is an observed FAIL of the marker, not an absence of data.
+
+SELECTION follow-up (`gate-c-selection.md`) — it kills Critical 1's *named* alternative and
+narrows the rest; it does not close the mechanism question:
+- **An out-of-diff directive in an arbitrarily-named `SKILL.md` reached the reviewer and was
+  followed.** `quokka-audit`, committed as repo state and never part of any PR diff, had its
+  instruction followed and its marker `MARKER-QUOKKA-8801` emitted. Whatever the mechanism, it is
+  **not** pinned to a skill named `code-review` at the footer's path — Critical 1's named
+  alternative is refuted. The mechanism itself (agent-skill selection vs repo-context ingestion)
+  is **not** established; see RESIDUAL — CHANNEL.
+- **Control arm — a baseline, and confounded.** `CONTROL-NO-SKILL-8803` was literally inside a file
+  in a reviewed diff and did **not** appear in that review, so marker-shaped strings do not appear
+  in this reviewer's output as a matter of course. It does **not** discriminate agent-skill
+  selection from ordinary repo-context reading: the control string differs from the positive
+  markers in *two* variables at once — location (in-diff vs out-of-diff) and instruction-status
+  (no imperative vs "you must state the following … verbatim") — and "follows imperatives in any
+  repo file it reads" predicts the whole observed pattern equally well. One observation, one PR,
+  review effort "Lite"; not a general non-echo rule. **Q1, not this arm, is what closes Critical
+  1's named alternative.**
+- **The footer is conditional, not decoration.** The "Add a `code-review` agent skill" link
+  appeared on one review and was absent on two others in the same repo. `gate-c.md`'s original
+  dismissal of it as "a generic UI affordance shown on every review" is empirically wrong and has
+  been rewritten. Two readings survive and cannot be separated: (a) the link is suppressed once
+  `.github/skills/code-review/SKILL.md` exists — more parsimonious, since it is a pre-filled
+  file-*creation* link for exactly that path; or (b) the link signals no skill was loaded. Under
+  (b), Gate C's own footer would read as "no skill loaded" and SELECTION would be back in doubt.
+  (b) cannot be excluded.
+- **Not established** (one observation, confounded): whether the `code-review` name is privileged
+  when several skills are present.
+
+RESIDUAL — CHANNEL. Whether the load is description-matched agent-skill selection or ordinary
+out-of-diff repo-context reading is **unresolved**; the follow-up's two skills carried identical
+generic descriptions and cannot discriminate. Also unresolved: whether the reviewer reads the PR
+head branch or the default-branch tip. Safe carried-forward wording: *a `SKILL.md` under
+`.github/skills/` reaches Copilot code review from outside the diff, under an arbitrary name, and
+its directives are followed.*
+
+RESIDUAL — DIRECTORY, and this one matters to what we ship. Gate C and its follow-up both ran
+**entirely from `.github/skills/`**. The project ships its skill to `.claude/skills/`. **Whether
+Copilot code review reads `.claude/skills/` is UNTESTED.** Gate B's `.claude/skills/` PASS is on
+the Copilot **CLI**, a different surface. Do not carry it across.
+
+CONSEQUENCE. Copilot code review cannot execute -> diff-line findings come only from the Phase 2
+SARIF upload, not from the skill. The skill on that surface is prose-only, and the provenance
+header will be absent there by design — document this so a missing header on code review is not
+read as a failure.
+
+CAVEAT ON GENERALITY. One observation for execution (plus three more PRs for selection), one small
+repo, one account, review effort self-reported as "Lite" throughout, no MCP servers configured. It
+shows the plain unassisted `.github/skills/` path does not execute; it does not prove no
+configuration ever could.
+
+MECHANICAL NOTE for future automation: `gh pr view --json reviewRequests` and REST
+`pulls/{n}/requested_reviewers` both return empty for a requested Copilot reviewer. The request
+**did** land — check `issues/{n}/timeline` for `event=review_requested` with
+`requested_reviewer.login == "Copilot"`. Reading the empty list as "request rejected" is a
+false negative waiting to happen.
+
+## Gate D — false-positive AND recall rate on real configs
+STATUS: STARTED, DEFERRED before completion — Gate D now runs only if Gate E shows lift.
+Detail: `gate-d.md`, a resumable stub carrying the shard method, the fetch-bug diagnosis and the
+resume recipe.
+
+NUMBERS (per the DECISIONS rule below — the corpus size and how it was obtained). The search phase
+ran and the expensive half did not: **4,176 hits, 4,165 unique blobs, 4,064 unique repos.** Method:
+the GitHub code-search API hard-caps every *query* at 1,000 results regardless of pagination, so a
+larger corpus needs **query sharding, not `--paginate`**. This run sharded on `size:` into **42
+disjoint ranges** — one 100-result page per shard, at a **10 requests/minute** limit, roughly
+**8 minutes** of wall clock. Near-1:1 blobs to repos, so the list is not dominated by forks of one
+file. This supersedes the controller's pre-run feasibility note, which recorded only that
+`gh api search/code` worked with the current token (`total_count` 194,816 for
+`filename:devcontainer.json path:.devcontainer`) and that the clone-the-org fallback was not needed.
+
+The content fetch then **failed silently** on a diagnosed bug, so `docs/gates/fp-corpus/` is
+**empty**. The harness was written and never run; no `parsed`/`unparseable` counts and no
+adjudications exist.
+
+**There is therefore no false-positive rate and no recall figure for any rule, and none may be
+quoted from those numbers: 4,176 is a corpus that was *found*, not one that was *measured*.**
+
+Note: the harness measures a fourth heuristic, `DC-FEAT-PIN`, which has **no corresponding rule**
+in Task 6's twelve. Its FP rate therefore cannot demote a rule; it gates a possible Phase 2 check
+only. Record it as such rather than silently mapping it onto DC-FEAT-001/002/003.
+
+## Gate E — blinded usefulness (firing rate, lift, harm) — runs after the draft skill exists
+STATUS: RUN 2026-09-01 — **LIFT MET, HARM NOT ZERO. Phase 1 does NOT ship on this evidence.**
+Detail: `usefulness/tasks.md` (ten tasks with labels written before any run) and
+`usefulness/results.md` (per-run table, the three numbers, verbatim output).
+
+44 runs of 44 attempted, all exit 0 — 40 planned plus 4 re-runs of the false-positive control
+after its fixture was found defective. Run in a /tmp scratch repo, never in this one: this
+repository carries RESEARCH-BRIEF.md and 26 primary sources, so a WITHOUT arm here could answer
+every task from the research and produce a spurious zero lift. Five decoy skills were installed
+alongside, so selection had to discriminate.
+
+| Number | Result |
+|---|---|
+| FIRING RATE, `claude -p` | 10/10 = 100% |
+| FIRING RATE, `copilot -p` | 8/10 = 80% (missed T05, T10; both answered correctly anyway) |
+| FIRING RATE, VS Code agent mode | **NOT RUN** — no GUI automation. Not dropped from the denominator. |
+| LIFT | 6 of 10 tasks, **5 attributable** (T05 improved in a run where the skill never fired) |
+| LIFT by surface | copilot **5/10, net +5** (5 -> 10 correct); claude **1/10, net 0** (+T01, -T02) |
+| Correct totals | 18/20 WITH vs 13/20 WITHOUT |
+| HARM | **1 task** |
+
+Firing rate was the number the plan expected to disappoint. It did not.
+
+THE HARM CASE, and it is a real defect rather than a judgement call: on `claude -p`, task T02 went
+from correct to wrong. The skill emitted `DC-SEC-001 [SPEC] ERROR` against
+`GITHUB_TOKEN: ${localEnv:GITHUB_TOKEN}` — **the exact form that rule's own Fix prescribes**. The
+control arm got it right explicitly. Systematically: **4 of 16 emitted finding lines (25%) were
+false positives, all from two rules** — `DC-SEC-001`'s key-name clause, and `DC-USER-001`, which
+fires on the ABSENCE of an optional property whenever `remoteUser` is set.
+
+DECISION. The rule requires lift >= 3 of 10 AND harm = 0. Lift is met; harm is not. Both must
+hold, so this is the MIDDLE branch: fix, re-run, do not add rules, do not open the upstream PR.
+**This is not the Lift-0 branch. Rung 1 is not indicated.**
+
+FOUR FINDINGS THE LIFT NUMBER DOES NOT CAPTURE:
+- **Zero confidently wrong answers in the WITH arm; three in the WITHOUT arm.** The plan calls a
+  confident wrong answer worse than a miss, and this is arguably the strongest single result.
+- **The lift is almost entirely on the weaker surface.** On `claude -p` the base model PLUS A
+  SHELL already scores 8/10 — three control runs built real containers and ran the real
+  `devcontainer` CLI to check themselves. The skill's only claude win is a GitHub-side fact no
+  amount of shelling out reaches. The package's value concentrates where the agent cannot execute.
+- **A "nothing to find" fixture is near-unconstructible for an agent with repo-wide shell access.**
+  T08's clean config lacked a `package.json` its own config referenced, so both arms truthfully
+  flagged missing scaffolding. Rebuilt as T08b; T08 excluded.
+- Every per-task cell is n=1.
+
+NOT RUN, and it stays open: the `.github/instructions/` pointer sub-experiment the plan folds into
+this gate needs VS Code's silent inline-edit surface. **Task 9 must not assume the pointer works**,
+and its delete-if-inert rule cannot be evaluated yet.
+
+
+### Gate E round 2 — after narrowing the two misfiring Detect fields (corpus 0.2.0)
+STATUS: RUN 2026-09-01 — **PASS. Phase 1 SHIPS.**
+
+20 runs of 20 attempted (T02, T03, T08b, T11, T12 x 2 surfaces x 2 arms), all exit 0.
+Firing **10/10 = 100% on BOTH surfaces** this round; copilot missed two of ten in round 1 and
+none of five here.
+
+| Number | Round 1 (0.1.0) | Round 2 (0.2.0) |
+|---|---|---|
+| HARM | 1 | **0** |
+| False positives among emitted finding lines | 4 of 16 (25%) | **0 of 9** |
+| True positives lost to the narrowing | n/a | **none — measured, not inferred** |
+
+THE HARM CELL IS FIXED AT THE SOURCE. On T02, `claude` WITH now emits one `DC-SEC-001` finding —
+the literal only — and adds an explicit "two things I checked and am NOT reporting" block naming
+`${localEnv:GITHUB_TOKEN}` as "correct as written... flagging it would contradict the rule".
+`copilot` WITH reached the same place independently.
+
+TWO PROBES WERE ADDED because neither existing fixture carried the case each narrowing was most at
+risk of losing. Labels were written before running, per the gate's own discipline.
+- **T11** — both password literals raised as `DC-SEC-001 [SPEC] ERROR`, **including the
+  low-entropy `hunter2`**, while `${localEnv:API_SECRET}` was explicitly declined ("the
+  substitution exclusion is absolute") and a neutral literal was not raised. The corpus author's
+  worked check is now an OBSERVATION rather than their reading of their own text.
+- **T12** — a CI job running `devcontainer build --image-name ... --push`. Both surfaces WITH
+  fired `DC-USER-001`, connected it to the published tag not being the image that runs, and gave
+  the CI fix. **Both WITHOUT arms missed it entirely**; copilot even listed non-root `remoteUser`
+  under "good practices already present".
+
+`DC-USER-001` now fires on exactly ONE of ten WITH runs — the single fixture carrying the evidence
+its new `Detect` requires — and is reasoned about and declined on the other eight. The sharpest
+instance is the clean-config control, which noticed `git config --global --add safe.directory` is
+an ownership workaround, checked the rule's enumeration, and declined because "its `Detect`
+enumerates `chown`, `chmod` and `sudo` specifically". Round 1's PARTIAL on that control became
+"Findings: None."
+
+DECISION: lift >= 3 of 10 (6 in round 1, undisputed; round 2 converts T02 from harm to lift and
+adds T03 and T12) AND harm = 0. Both conditions of the ship branch are met. **Phase 1 ships.**
+
+CARRIED CAVEATS, none of which the decision rests on:
+- **Control variance is real.** The WITHOUT arm scored differently from round 1 on all three
+  re-run tasks, in BOTH directions. Every cell is n=1. This does not touch the harm finding, which
+  is WITH-vs-WITHOUT on the same fixture, but round 2's control numbers are not evidence of the
+  base model degrading.
+- **VS Code agent mode is unmeasured in both rounds**, and the `.github/instructions/` pointer is
+  still untested. Task 9 must not assume the pointer works and cannot yet apply its
+  delete-if-inert rule.
+- `references/spec-facts.md` was still absent; its degradation clauses fired correctly again.
+- Minor, for the record: `DC-USER-001`'s ownership-workaround enumeration is closed
+  (`chown`/`chmod`/`sudo`). A model correctly declined `git config safe.directory` against it. The
+  outcome was right and the reasoning was sound, but the enumeration may be under-inclusive.
+
+## DECISIONS
+Phase 1 SHIPS only if Gate E shows lift on >= 3 of 10 tasks with zero harm cases.
+  **Lift 1-2 => the problem is selection, not rules. Rewrite the description. Do not add rules.**
+  Lift 0 => stop and fall back to twelve facts in AGENTS.md. Record that as the finding.
+Phase 2 (executable checker) proceeds only if Gate E passed AND Gate D flagship-heuristic
+  false positives on working public configs are <= 10% with usable recall.
+Record all numbers here, including the corpus size and how it was obtained.
+
+Settled by Gates A-C, carried forward — each bullet claims only what was observed:
+- **Frontmatter ships FOUR keys** (`name`, `description`, `license`, `metadata`) **of a five-key
+  portable set** — `allowed-tools` is the fifth and is omitted deliberately, because the key is
+  portable and its *value grammar* is not (Claude Code writes `Bash(node:*)`, Copilot writes
+  `shell(...)`); four is what we ship, not the only legal set. A strict
+  "exactly these keys" CI gate must **validate the SOURCE file, never an installed copy** — `gh
+  skill install` injects its own `metadata:` block and would fail such a gate every time (Gate A,
+  observed diff). The acceptance half rests on **Copilot CLI 1.0.82, project scope,
+  `.claude/skills/` only** (Gate A addendum); `.github/skills/`, VS Code, code review and the
+  Skills API path — where the plan says an out-of-set key is a hard error — are untested.
+- **`references/` depth is affordable for a project-scoped skill checked into the repo**, on
+  Copilot CLI and on Claude Code (Gate B). Rules stay out of the SKILL.md body. Three limits ride
+  with this: VS Code Copilot Chat is **NOT RUN** on both discovery and resolution; the probe cannot
+  distinguish skill-relative resolution from reading a file under the CWD, so it says nothing about
+  a **personally installed** copy; and Gate A observed that `copilot skill add`'s only copying form
+  **never copies `references/` at all**, so on a Copilot-installed personal copy the level-3 files
+  are not on disk to resolve. Safe everywhere is not what was shown.
+- **Phase 2 must not assume execution inside Copilot code review** (Gate C, observed: the marker
+  never appeared). As tested, the unassisted `.github/skills/` path does not execute; **treat
+  SARIF-via-Actions as the only route we have evidence for** — not as the only route that could
+  exist, which is exactly what Gate C's own CAVEAT ON GENERALITY disclaims (MCP servers untested,
+  review effort "Lite", one repo, one account).
+- **Copilot code review obeyed an out-of-diff directive in an arbitrarily named
+  `.github/skills/.../SKILL.md`; whether this was agent-skill selection is unresolved.**
+  (`gate-c-selection.md`, observed: `quokka-audit`'s instruction followed and its marker emitted,
+  with that SKILL.md in no PR diff.) One observation per arm, review effort "Lite" throughout. The
+  control arm is confounded and does not settle the mechanism. **Everything was observed from
+  `.github/skills/`, never from `.claude/skills/` — which is where this project ships its skill.**
+  Do not assume code review sees a `.claude/skills/` skill, and do not design on description-based
+  selection working here.
+
+## CLEANUP — COMPLETE
+All throwaway probe repos have been deleted. The `gh` token originally lacked the `delete_repo`
+scope; the repository owner granted it, and the controller then deleted
+`danemil/probe-skill-gatea` (Gate A), `danemil/probe-exec-gatec` (Gate C) and
+`danemil/probe-select-gatec` (Gate C selection follow-up). No repository matching "probe" remains
+on the account. All local probe working trees were removed by their own tasks. **Nothing is
+outstanding.**

@@ -1,55 +1,676 @@
-# devcontainers
+# devcontainers — a portable agent skill for dev container configuration
 
-A workspace for dev container research and tooling, configured so the **same project
-instructions, skills, and MCP servers work across every AI coding host** rather than
-being locked to one.
+A single skill, `devcontainers`, that a coding agent loads when it is asked to create,
+review or debug a `devcontainer.json`. It carries a twelve-rule cited corpus, the
+specification mechanics behind those rules, and an audit procedure that refuses to let
+"not checked" read as "passed".
 
-## What's here
+It is written to be read by **Claude Code and GitHub Copilot from the same file**, with no
+generator, no build step and no per-host fork. The whole shipped product is one directory:
 
-**Shared instructions**, kept in sync across hosts — identical content, host-specific
-filenames: `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `QODER.md`, `.cursorrules`,
-`.windsurfrules`, `.kiro/steering/`, `.github/`.
+```
+.claude/skills/devcontainers/
+├── SKILL.md                     # modes, refusals, audit procedure, symptom lists
+└── references/
+    ├── rules.md                 # the twelve rules — the only place rule content lives
+    └── spec-facts.md            # lifecycle, prebuilds, merge rules, substitutions, CLI
+```
 
-**MCP wiring** for [`code-review-graph`](https://pypi.org/project/code-review-graph/) —
-a knowledge graph over the codebase used in place of grep/glob for structural queries
-(callers, dependents, impact radius, test coverage). Configured for Claude Code
-(`.mcp.json`), Cursor, VS Code, Kiro, Qoder, opencode, and Gemini.
+plus `.github/instructions/devcontainers.instructions.md`, a contentless pointer whose
+mechanism is **unproven** — see below.
 
-**Skills** — `debug-issue`, `explore-codebase`, `refactor-safely`, `review-changes`,
-provided for both Claude (`.claude/skills/`) and Gemini (`.gemini/skills/`).
+**Status: Phase 1 ships.** That is a decision record, not a mood: it is what Gate E's
+measured lift and zero harm cases entitle us to say. **Read the version carefully, because
+the two are no longer the same number.** Gate E passed against corpus **`0.2.0`**; the corpus
+now ships **`0.3.0`**, and the outstanding evaluation debt that creates is stated under
+Maintenance rather than glossed. The authoritative version is the one `references/rules.md`
+declares — this file is not a third source of truth for it. Everything below distinguishes
+what was measured from what was assumed. Where a thing is unproven, this file says so.
 
-**Hooks** — session-start and post-edit hooks that keep the graph incrementally updated.
+---
 
-## tools/
+## Install
 
-### `wf-preflight.mjs`
+> **Prerequisite — the two commands below do not work yet, for two independent reasons.**
+> The repository is **private**, so an unauthenticated fetch of it returns 404 and
+> `npx skills add danemil/devcontainers` cannot resolve it for anyone but the owner. And this
+> work sits on an **unpushed branch** (`devcontainer-agent-package`); nothing has been pushed
+> and the skill is not on `main`, so even with the repository public the documented command
+> would not find it. **Both commands become valid once the repository is public and this
+> branch is merged and pushed.** Whether the repository is published is the owner's decision
+> and has not been made — this file does not predict it. Until then the only route that works
+> is **Manual**, below, from a local checkout.
+>
+> The commands themselves are correct in form and are the ones Gate A measured. What is
+> missing is a reachable repository, not a working command.
 
-Validates a Claude Code **Workflow** script before you invoke it.
+### The supported channel
 
 ```sh
-node tools/wf-preflight.mjs <script.js>
+npx skills add danemil/devcontainers
 ```
 
-It catches the failure mode the Workflow parser reports badly: a markdown backtick in
-prose inside a backtick-delimited agent prompt silently closes the template literal, so
-the parser blames the *next word* — `Unexpected identifier 'customizations'` — and never
-mentions backticks. It also reports only the first such site, making a multi-site script
-take one failed round trip per site to fix.
+Gate A measured all three packaged installers against a probe skill with the same shape as
+this one. **`npx skills add` is the only one that installs a subdirectory tree from a repo
+ref with full fidelity**, and it is therefore the supported channel rather than a footnote.
 
-Detecting stray backticks directly is undecidable (`` `str`.length `` and a markdown span
-before a period lex identically), so the tool checks the two things that *are* decidable:
-whether the script parses in the runtime's async context, and whether any prompt uses a
-multi-line template literal. Prose belongs in double-quoted lines instead, where
-backticks, `${...}` and apostrophes are all inert:
+| Installer | subdirectories (`references/`) | executable bit | frontmatter |
+| --- | --- | --- | --- |
+| `npx skills add <owner>/<repo>` | PASS | PASS | PASS — byte-identical |
+| `gh skill install <owner>/<repo> <skill>` | PASS | **FAIL** — 755 → 644 | **FAIL** — injects a nested `metadata:` block and reorders keys |
+| `copilot skill add` | **FAIL** — no repo-ref form exists; the file form silently drops `references/` | n/a | PASS (file form) |
 
-```js
-prompt: [
-  "5. The `customizations` namespace, esp. `customizations.vscode`.",
-  "Slash commands use ${input:...} and !`bash` execution.",
-].join("\n")
+Load-bearing detail, because the failures are quiet ones:
+
+- **`gh skill install` rewrites the file it installs.** It injects its own nested
+  `metadata:` block (`github-path`, `github-ref`, `github-repo`, `github-tree-sha`) into
+  the installed `SKILL.md`. Consequences: any strict frontmatter gate must validate the
+  **source** file, never an installed copy; and after installing this way you need
+  `chmod +x` on anything that is meant to be executable. **We do not claim our own
+  `metadata:` block survives it** — the probe skill had no `metadata:` key, so whether
+  `gh` merges into or clobbers an existing one was never observed. Read `corpus_version`
+  from the source file.
+- **`copilot skill add` has no `owner/repo` form at all.** It accepts a local file, a local
+  directory, or an HTTPS URL to a single `SKILL.md`. Its **directory** form is a
+  non-copying pointer written into `~/.copilot/settings.json` → `skillDirectories`; its
+  **file** form copies `SKILL.md` only and **silently drops `references/`**. (The HTTPS-URL
+  form was not run; its single-file scope is read from `--help`, not observed.)
+- One observation, recorded because it undercuts a "one install serves both hosts" story:
+  `npx skills add ... -a claude-code` printed an install-summary line claiming a copy to
+  `~/.agents/skills/`, and never created it. The file landed only in `~/.claude/skills/`.
+
+### Copilot
+
+If you check the skill into the repository you are working in, **nothing needs installing**:
+`copilot skill --help` documents `.claude/skills/` as a native Project discovery source, and
+Gate B observed the Copilot CLI listing, selecting and resolving `references/` from there
+with no `--allow-tool` flag.
+
+To use it **outside** that workspace, the only Copilot path that delivers the corpus is two
+steps — the clone depends on the prerequisite at the top of this section:
+
+```sh
+git clone https://github.com/danemil/devcontainers
+copilot skill add ./devcontainers/.claude/skills/devcontainers   # directory form — a pointer, not a copy
 ```
 
-## Note on portability
+Do **not** use `copilot skill add <path>/SKILL.md`. The file form copies that one file and
+leaves `references/rules.md` behind, which on this package means the agent keeps the audit
+procedure and loses every rule it is supposed to apply.
 
-The MCP configs hardcode the absolute path `/Users/emildan/work/devcontainers` as the
-server `cwd`. Update those if you clone this elsewhere.
+**Why this matters more than an install-mechanics footnote.** Gate E found the package's
+lift is almost entirely on the Copilot surface — on `claude -p` the base model plus a shell
+already scores 8/10, and three control runs built real containers and ran the real
+`devcontainer` CLI to check themselves. A channel that drops `references/` drops the corpus
+on the highest-value surface.
+
+### Manual
+
+Copy `.claude/skills/devcontainers/` into your repository (project scope, recommended — both
+hosts read it, and the level-3 `references/` files resolve because they sit in the
+workspace) or into `~/.claude/skills/` (personal scope). Gate B's PASS was measured for a
+**project-scoped skill inside the CLI's working directory**; the probe cannot distinguish
+skill-relative resolution from ordinary working-directory file reading, so it does not
+transfer to a personally installed copy sitting outside the workspace.
+
+---
+
+## The frontmatter contract
+
+Five keys are portable across both hosts — **five per the plan's design constraint, not per
+anything a gate measured.** Gate A measured *acceptance* of the four we ship; it never
+enumerated the portable set. **We ship four:**
+
+```yaml
+name: devcontainers
+description: Use when creating, editing, reviewing, validating or debugging a devcontainer.json…
+license: MIT
+metadata:
+  corpus_version: "<whatever references/rules.md declares>"
+  spec_verified: "2026-08-31"
+```
+
+The version is deliberately not written out here. `rules.md` is authoritative, the frontmatter
+copy exists so an installed skill can be identified without opening a reference file, and the
+third grep below is the only thing that keeps the two in step — a README that also stated it
+would be a third copy to forget.
+
+`allowed-tools` is the fifth. It is omitted because **the key is portable and its value
+grammar is not**: Claude Code writes `Bash(node:*)`, Copilot writes `shell(...)`. A single
+file cannot carry both, and a value one host cannot parse is worse than an absent key —
+the skill's own refusals already gate every tool invocation behind a `command -v` probe.
+
+This is a shipping decision about four of five keys. **It is not a claim that four keys are
+the only legal set** — that would be false. Gate A's addendum probed the point directly: a
+skill carrying an author-written `metadata:` block was listed, selected, fired and returned
+its marker with zero warnings on either stream, behaviourally identical to a control without
+one.
+
+The supported claim is exactly what was observed: *accepted by Copilot CLI 1.0.82, project
+scope, `.claude/skills/`.* Untested: `.github/skills/`, VS Code Copilot Chat, Copilot code
+review, and the Skills API path — which is the strictest validator and the one never probed.
+Re-test before relying on this if the Skills API becomes a target.
+
+---
+
+## Tiers and the citation invariant
+
+Every rule carries a tier, and the tier is printed on **every** finding line so a reader who
+quotes one line still carries the distinction:
+
+```
+DC-XXX-NNN  [TIER]  SEVERITY  <file>:<line>  <what was found>
+```
+
+`SPEC` requires **both** axes:
+
+1. **Provenance** — stated in the Dev Container specification, the reference CLI, or
+   official vendor documentation; not inferred by this package.
+2. **Applicability** — applies to any dev container, rather than being conditional on a tool
+   the specification does not mention.
+
+`OPINION` means at least one axis fails. `DC-CLAUDE-001` is the second kind: every
+mechanical claim in it is stated in Anthropic's own documentation, yet nothing in the
+specification requires any of it. So `OPINION` does not mean "unsourced" — check which axis
+failed before reading it that way.
+
+**The citation invariant.** Every rule carries `Source` (a URL), `Quote` (verbatim, under
+300 characters), and `Verified` (a date). A claim with no quote that supports it is not a
+rule. The corpus passed an adversarial citation pass on 2026-09-01: 12/12 quotes verbatim,
+12/12 under 300 characters, and each quote re-tested for whether it *supports* the assertion
+rather than merely sitting near it. Two dead `Source` URLs were found and corrected in that
+pass — which is the argument for the harness below, not against the invariant.
+
+**IDs are a published interface.** They are never reused. A retired rule keeps its ID and
+gains `superseded_by`. A rule a project does not want is suppressed with
+`prompt_include: false`, never deleted.
+
+### Severities are provisional
+
+Gate D never ran, so **no rule's severity has been calibrated against real-world
+configurations.** `DC-LIFE-001` ships at ERROR while its own `Detect` concedes the point:
+the rule "only bites a project that actually uses prebuilds… A project that never prebuilds
+is not wrong to put installs in `postCreateCommand`." Treat the severity column as the
+author's ordering, not as a measured one, until Gate D produces a false-positive rate.
+
+---
+
+## Body portability, and the two greps that enforce it
+
+Nothing in `SKILL.md` or `references/` may use host-specific syntax: no inline
+`` !`command` `` execution, no ```` ```! ```` execution fences, no `$ARGUMENTS`, no
+`${CLAUDE_*}` variables. Both hosts must read the same bytes.
+
+```sh
+# 1. Portability — must print nothing.
+grep -nE '^\s*!`|```!|\$ARGUMENTS|\$\{CLAUDE_' \
+  .claude/skills/devcontainers/SKILL.md \
+  .claude/skills/devcontainers/references/*.md \
+  && echo "FAIL: host-specific syntax" || echo "OK"
+```
+
+```sh
+# 2. Rule-field counting — every field must print 12.
+R=.claude/skills/devcontainers/references/rules.md
+awk '/^```/{f=!f; next} !f' "$R" | grep -c '^### DC-'
+for fld in Severity Tier Source Quote Verified Detect Fix; do
+  printf '%-9s %s\n' "$fld" \
+    "$(awk '/^```/{f=!f; next} !f' "$R" | grep -c "^- \*\*$fld:\*\*")"
+done
+```
+
+**The `awk` fence-strip in the second grep is load-bearing and must not be dropped.**
+`rules.md` documents its own rule format inside a fenced code block, and that template is
+indented two spaces *on purpose*. Un-indent it — a perfectly reasonable-looking tidy-up —
+and every count silently becomes 13 while the check still prints a plausible number. The
+naive `grep -c '^- \*\*Severity:\*\*' rules.md` returns 12 today and is a trap: it is
+correct only by the accident of that indentation. Stripping fenced blocks first makes the
+check independent of it.
+
+The portability grep is deliberately **not** fence-stripped: the syntax it hunts for lives
+inside fences, which is exactly where it would hide.
+
+```sh
+# 3. Version agreement — the two files must not drift.
+S=.claude/skills/devcontainers/SKILL.md
+SV=$(sed -n 's/^[[:space:]]*corpus_version:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' "$S")
+RV=$(sed -n 's/^corpus_version:[[:space:]]*//p' "$R")
+[ "$SV" = "$RV" ] && echo "OK $SV" || echo "FAIL: SKILL=$SV rules=$RV"
+```
+
+`rules.md` is the authoritative version; the frontmatter copy exists so an installed skill
+can be identified without opening a reference file. Nothing but this check keeps them in
+step.
+
+---
+
+## The verification harness this package specifies
+
+This is the piece that would have caught both of this project's worst defects, and it has
+two halves — the second of which nobody had.
+
+**Why two halves, stated plainly: every check built for this corpus verified that it was
+TRUE; nothing verified that it was SAFE TO FOLLOW. A corpus is a set of instructions as
+well as a set of statements.** Gate E caught a rule that flagged its own prescribed remedy
+as a violation, on a corpus where every quote verified and every checker passed.
+
+### Half one — TRUE
+
+- Every `Quote` field, and every double-quoted span of 40+ characters inside `Detect` and
+  `Fix`, machine-checked verbatim against `docs/sources/` and against a live fetch of its
+  `Source` URL. Whitespace-normalised; straight and curly apostrophe variants both tried.
+- Every `Source` URL resolved, with its status code recorded. Two of twelve had been dead
+  since 2023 and were found only because a human opened them.
+- **Prose claims *about* the rules enumerated by script, not asserted.** This is the half
+  that was missing the first time. One clause in `rules.md` drifted three separate times
+  because every *quote* was machine-checked while a *paragraph about* the rules was
+  ordinary prose and sat outside every checker. If a sentence says "all twelve", "each
+  rule", or "every `Detect`", a script must be able to evaluate it.
+
+### Half two — SAFE TO FOLLOW
+
+- **A bucket fixture whose expected buckets are parsed out of `SKILL.md`'s own worked
+  tally**, not hand-copied into a test file. Run the AUDIT procedure against the fixture
+  config, parse the emitted tally, and assert it reconciles to the rule count with each rule
+  in the bucket the worked example places it in. **Derive the count by counting the rules; do
+  not write it into the fixture.** A hard-coded total is the drift hazard this project has
+  been bitten by repeatedly — `SKILL.md` has had hard-coded counts removed from its own prose
+  for exactly this reason.
+- **`label-safe` derived from the parsed not-label-storable list** under "My changes aren't
+  taking effect" in `SKILL.md` — read at runtime, never duplicated and never counted into a
+  literal. That turns a prose fence into an executed constraint: it fails if anyone moves the
+  list, which is precisely the edit `SKILL.md`'s own editing note forbids, because AUDIT's
+  bucket table depends on that list and AUDIT does not load `spec-facts.md`.
+  **Derive it as positive attestation, not as a complement.** The list is not "everything the
+  can-carry list omits". Each entry has an untagged row in the spec's JSON reference, whose
+  legend states per property whether it is recorded in the image label — so the source has
+  **three** states, not two: tagged, untagged row, and *no row at all*. **Silence is not
+  immunity.** A property with no row is one the source does not speak to, and the audit must
+  read the merged configuration rather than infer.
+  **The list is complete against `[json-ref]`, not merely open** — a question this project
+  carried unresolved for most of its life and has now closed by extracting every row: **50
+  property rows, 31 tagged, 19 untagged across 18 distinct properties, and collapsing the six
+  `build.*` rows gives exactly the thirteen entries the list carries.** So a harness may assert
+  set equality against the source rather than mere membership. Two corrections came with that
+  extraction, and both invert what this project believed: `appPort` is attested, while
+  `extensions`, `settings` and `devPort` have **zero occurrences anywhere in the reference** —
+  and `DC-FEAT-001` and `DC-FEAT-002`, the two rules that carried an explicit caveat, are the
+  fully attested ones.
+  A harness that computes label-immunity by absence across two lists will call unattested
+  properties immune, which is how this was got
+  wrong in three files at once; `DC-DEP-001`, described throughout this project as the clean
+  case, turns out to be attested for one input of four.
+- **The T02-shaped secret fixtures, run against any changed `Detect`.** `${localEnv:TOKEN}`
+  in `remoteEnv` must **not** be flagged — it is the exact form `DC-SEC-001`'s own `Fix`
+  prescribes — while a literal secret must be, including a low-entropy one such as
+  `hunter2`. Round 1 of Gate E emitted `DC-SEC-001 [SPEC] ERROR` against the remedy itself.
+- **`SKILL.md` frontmatter `corpus_version` asserted equal to `rules.md`'s value** (grep 3
+  above). They can drift and nothing else catches it.
+- **`upstream/.generated-from`'s `corpus_version` asserted equal to `rules.md`'s value.**
+  Specified here, not yet built. The sidecar exists so the projection's currency is a checkable
+  fact rather than a claim in prose; until the assertion is executed, that check is a human
+  running the two greps the sidecar itself prints.
+
+Any `Detect` edit re-runs half two. A `Detect` change that alters what the corpus emits for
+an unchanged configuration is a **minor** version bump even when the edit looks tiny.
+`0.1.0` → `0.2.0` was exactly that — two `Detect` fields narrowed, so findings that used to be
+emitted no longer are. So was `0.2.0` → `0.3.0`, in both directions at once: `DC-USER-001`'s
+ownership enumeration was opened from a closed three-item list to a read-for-intent class,
+**and** the `git config --global --add safe.directory` case was explicitly excluded — a case a
+live verification run had previously got right by luck rather than by instruction.
+
+---
+
+## Cross-host verification prompts
+
+Six hand-run prompts, three per host. They are the only thing that proves the skill still
+*fires* after a vendor changes discovery — description matching is not a contract, and no
+citation checker can detect a skill that is never selected. They replace an eval harness at
+this version and cost nothing to run.
+
+```sh
+# Claude Code
+claude -p 'Review .devcontainer/devcontainer.json for problems'
+claude -p 'Why does my command work in the terminal but not in postCreateCommand?'
+claude -p 'Set up a Node 22 dev container for this repo'
+
+# Copilot CLI
+copilot -p 'Review .devcontainer/devcontainer.json for problems' -s
+copilot -p 'Why does my command work in the terminal but not in postCreateCommand?' -s
+copilot -p 'Set up a Node 22 dev container for this repo' -s
+```
+
+Run them against a scratch repository holding a deliberately flawed `devcontainer.json` —
+a dependency install in `postCreateCommand`, a `TOKEN` in `remoteEnv`, an unpinned Feature,
+`waitFor: postAttachCommand`. Record, per prompt and per host: did the skill fire, did the
+right mode engage, were rule IDs cited with tier tags, did `DC-ENV-001` come up on the
+`userEnvProbe` question, and was any refusal violated.
+
+**Results live in `docs/VERIFICATION.md`** — the recorded baseline, not this file. Read it as
+a point-in-time measurement rather than a current statement: **it is pinned to commit
+`8d1f9c6`**, identified by hashing every commit on the branch until one matched all three of
+its recorded sha1s. `SKILL.md` has changed since (tier-tag and read-check fixes landed after
+that baseline), so its recorded hash no longer matches the file on disk. A baseline in that
+state has to be re-run before it can be cited as current, which is the whole reason it records
+hashes — and being able to name the commit is what makes "re-run it" a bounded instruction
+rather than a vague one.
+
+---
+
+## Gate results, as decision records
+
+Full detail in `docs/gates/GATE-RESULTS.md` and the per-gate files beside it. Each line
+claims only what was observed.
+
+| Gate | Question | Result | What it decided |
+| --- | --- | --- | --- |
+| **A** | installer fidelity | MIXED | `npx skills add` is the supported channel; a strict frontmatter gate validates the source file, never an installed copy |
+| **B** | can Copilot resolve `references/` from `.claude/skills/`? | **PASS** (Copilot CLI **1.0.81** + Claude Code control) | `references/` depth is affordable — the twelve rules stay out of the `SKILL.md` body |
+| **C** | can Copilot code review shell out? | selection reaches, **execution FAILS** | on that surface the skill is prose-only |
+| **D** | false-positive and recall rate on real configs | **STARTED, DEFERRED before completion** — harvest search phase done, content fetch failed, corpus empty | severities are uncalibrated; Phase 2 is not unblocked |
+| **E** | blinded usefulness — firing, lift, harm | **PASS at corpus 0.2.0** — the corpus has since moved to `0.3.0` | Phase 1 ships; a full-set re-run is an outstanding debt (see Maintenance) |
+
+**Gate B — what rides with the PASS.** It was measured on **Copilot CLI 1.0.81**, carried
+forward and *not* re-measured in the 1.0.82 run that produced Gate A's addendum — record the
+version on any re-run, or the comparison is not a comparison. VS Code Copilot Chat is NOT RUN
+on both discovery and resolution. The probe cannot distinguish skill-relative resolution from reading a file under
+the working directory, so it says nothing about a personally installed copy. And Gate A
+observed that `copilot skill add`'s only copying form never copies `references/` at all, so
+on a Copilot-installed personal copy the level-3 files are not on disk to resolve. Safe
+everywhere is not what was shown.
+
+**Gate C — Copilot code review selects but cannot execute.** A `SKILL.md` under
+`.github/skills/` reached the reviewer from outside the diff, under an arbitrary name, and
+its directives were followed. The execution marker never appeared; what Copilot emitted was
+the skill's own documented "I cannot run commands" fallback string — an observed FAIL of the
+marker, not an observation of a command being attempted. So: **on Copilot code review the
+skill is prose-only, and a missing provenance header there is by design, not a failure.**
+Diff-line findings would have to come from a SARIF upload, which is Phase 2. Two limits ride
+with this: whether the load is agent-skill selection or ordinary repo-context reading is
+**unresolved**, and everything was observed from `.github/skills/`, never from
+`.claude/skills/`, which is where this package ships. One observation for execution, one
+repo, one account, review effort self-reported as "Lite" — it shows the plain unassisted path
+does not execute; it does not prove no configuration ever could.
+
+**Gate D — started, deferred before completion, and its corpus is empty.** That is the status
+`docs/gates/gate-d.md` carries, and it is more useful to a resumer than "not run", because the
+expensive half did happen:
+
+- **Search phase — DONE.** **4,176 hits, 4,165 unique blobs across 4,064 unique repos.** The
+  GitHub code-search API hard-caps every *query* at 1,000 results regardless of pagination, so
+  a larger corpus needs **query sharding, not `--paginate`**. This run sharded on `size:` into
+  **42 shards** — a partition that is disjoint, so no cross-shard duplicates — at one call per
+  shard against a 10 requests/minute limit, about eight minutes of wall clock. Near-1:1 blobs
+  to repos, so the corpus is not dominated by forks of one file.
+- **Content fetch — FAILED SILENTLY.** `docs/gates/fp-corpus/` is empty. The bug is diagnosed
+  in `gate-d.md`.
+- **Harness — written**, verbatim from the brief. **Run and adjudication — NOT RUN. Verdict —
+  NOT REACHED.**
+
+**There is therefore no false-positive rate and no recall figure for any rule**, and none may
+be quoted from the numbers above: 4,176 is a corpus that was *found*, not one that was
+measured. Separately, the harness measures a fourth heuristic, `DC-FEAT-PIN`, which has **no
+corresponding rule** among the twelve; its FP rate gates a possible Phase 2 check and can never
+demote a rule. See also "what this deliberately does not do" — Feature pinning is a real
+coverage gap, and `DC-FEAT-PIN` is the harness noticing it.
+
+**Gate E — passed at 0.2.0, after a fix.** Round 1 (`0.1.0`, 44 runs) met the lift bar and
+**failed the harm bar**: on `claude -p` one task went from correct to wrong, because the
+skill flagged `${localEnv:GITHUB_TOKEN}` — the exact form `DC-SEC-001`'s own `Fix`
+prescribes. Systematically, 4 of 16 emitted finding lines (25%) were false positives, all
+from two rules. Two `Detect` fields were narrowed and the gate re-run (20 runs, corpus
+`0.2.0`).
+
+**Read the table by its denominators, because the two rounds did not measure the same thing.**
+Round 1 ran ten tasks on each surface; round 2 re-ran a **five-task subset** (T02, T03, T08b,
+T11, T12), two of them probes added specifically to carry the case each narrowing was most at
+risk of losing. The firing-rate row in particular is not a like-for-like comparison, and the
+round-2 cell must not be read as a ten-task clean sweep — it was five tasks per surface.
+
+| | Round 1 (0.1.0) | Round 2 (0.2.0) |
+| --- | --- | --- |
+| harm cases | 1 | **0** |
+| false positives among finding lines | 4 of 16 (25%) | **0 of 9** |
+| true positives lost to the narrowing | n/a | **none — measured, not inferred** |
+| firing rate | 10/10 claude, 8/10 copilot (10 tasks each) | **5/5 on each surface — 10/10 combined, over 5 tasks** |
+
+Two findings the lift number does not capture, and they shape how this package should be
+read. **Zero confidently wrong answers in the WITH arm; three in the WITHOUT arm** — a
+confident wrong answer is worse than a miss. And **the lift concentrates where the agent
+cannot execute**: on `claude -p` the base model plus a shell already scores 8/10, and the
+skill's only win there is a GitHub-side fact no amount of shelling out reaches.
+
+Carried caveats: every per-task cell is n=1, control variance is real and moved in both
+directions between rounds, and **VS Code agent mode is unmeasured in both rounds.**
+
+---
+
+## The `.github/instructions/` pointer is untested
+
+`.github/instructions/devcontainers.instructions.md` exists for one reason: VS Code has
+silent, path-scoped inline-edit surfaces where no chat message describes the task, so
+description-based skill matching never fires. The file carries no guidance, which is why it
+cannot drift. Adding a rule to it is a review-blocking change.
+
+**Its mechanism is unproven and this file does not claim otherwise.**
+
+- **Documented:** `applyTo` routes an instructions file into context for matching paths.
+- **Not documented, and not measured:** that an instructions file saying "consult the X
+  skill" actually causes the skill to be invoked.
+- The evaluation was folded into Gate E. That arm needs VS Code's silent inline-edit
+  surface, there is no GUI automation in this project, and it was **NOT RUN** in either
+  round. The file ships on a documented-mechanism argument alone.
+
+The rule attached to it — **delete it if it changes nothing**, because an inert artifact
+with a maintenance rule attached is worse than no artifact — **cannot be applied yet.**
+
+**To settle it, a human must run this:** open the workspace in VS Code with Copilot; pick
+two of the Gate E tasks (`docs/gates/usefulness/tasks.md`); perform each as a *silent inline
+edit* on an open `devcontainer.json` — no chat message describing the task — once with
+`.github/instructions/devcontainers.instructions.md` present and once with it deleted;
+record for each run whether the skill engaged, judged by whether the output cites a `DC-`
+rule ID with a tier tag. If the pointer changes nothing across both tasks, delete the file
+and this section with it.
+
+---
+
+## `upstream/` — the one sanctioned projection of the corpus
+
+`upstream/awesome-copilot-devcontainers.instructions.md` is a self-contained
+`.instructions.md` file carrying all twelve rules **in instruction form** — assertion, what to
+look for, the concrete fix, and a source link — with **no `DC-` rule IDs and no severity
+labels**. It carries the current corpus, including `DC-USER-001`'s opened ownership
+enumeration with its `git config --global --add safe.directory` exclusion, and the
+label-attestation rewrite.
+
+**Its currency is declared by `upstream/.generated-from`, and that sidecar is the authority —
+not this paragraph.** The payload itself carries no version string, deliberately: our
+bookkeeping has no business travelling into a third party's repository. The sidecar stays
+here, names the corpus version the projection was generated from, and specifies the assertion
+that checks it:
+
+```sh
+grep '^corpus_version:' upstream/.generated-from
+grep '^corpus_version:' .claude/skills/devcontainers/references/rules.md
+# they must match; on mismatch the projection is stale, not merely old
+```
+
+**Do not restate the version in prose here.** An earlier draft of this section did, and went
+stale within one commit while the sidecar's own assertion passed — two answers to one
+question, from the mechanism built to answer it. Read the sidecar.
+
+**It is a payload prepared for [`github/awesome-copilot`](https://github.com/github/awesome-copilot)
+and it has not been submitted.** No PR has been opened, so there is no outcome to record here.
+That catalogue contains zero devcontainer instruction, prompt or chat-mode files today.
+
+**Why a second copy of the corpus is allowed here and nowhere else.** Everywhere inside this
+package, restating a rule is forbidden: it creates a competing source of truth that no
+citation pass covers, and it hands the verification harness an answer key it can match against
+instead of the corpus. `upstream/` is the deliberate exception, because the file **leaves**
+this repository. On the other side there is no `rules.md` to cite into, no tier tag, no audit
+procedure and — the actual reason — **no checker to short-circuit.** A reader who finds this
+file with no explanation would reasonably conclude the no-projection rule is decorative. It is
+not; this is the single sanctioned crossing of it.
+
+**The obligation that comes with it: nothing checks this file.** It must be regenerated from
+`references/rules.md` whenever the corpus changes. It is the artifact in this repository most
+likely to drift silently, precisely because the property that makes the projection acceptable
+— no checker on the other side — also means no checker on this side.
+
+**Traps in their contribution process, measured rather than assumed.** Whoever opens the PR
+must know these; two of them will fail CI:
+
+- **Their README index is machine-generated and must never be hand-edited.** `npm start`
+  runs `eng/update-readme.mjs` and `eng/generate-marketplace.mjs`, which regenerate
+  `docs/README.instructions.md` and the root README tables. A GitHub Action **fails the PR if
+  running the generator would change anything**. Run it and commit what it produces. (The
+  original task brief said to update the index by hand; that instruction is wrong and
+  following it fails their check.)
+- **PRs target `main`, explicitly not `staged`.** Branching from `staged` "may be outright
+  rejected".
+- Frontmatter is exactly `description:` and `applyTo:`, both **single-quoted**. The H1 after
+  the frontmatter is load-bearing: the index generator takes it as the entry title.
+- Their CONTRIBUTING asks an AI agent to append `🤖🤖🤖` to the **PR title** for fast-tracked
+  review. Whether that applies depends on who presses the button; do not add it silently.
+- `npm install` in their repository pulls a full dependency tree and runs third-party install
+  scripts on the machine that opens the PR.
+
+## Flip-triggers: when to stop hand-maintaining and adopt a generator
+
+Adopt [`rulesync`](https://github.com/dyoshikawa/rulesync) — which already generates Claude
+Code and Copilot artifacts from one source — at **either** of:
+
+- **≥ 4 target hosts**, or
+- **≥ 4 host-divergent files**.
+
+Today there is **one shared skill and one contentless pointer.** A generator would add a
+build step, a source-of-truth layout and a second thing to debug, in exchange for
+maintaining a fan-out of two. It is unjustified, and this is the number that changes that.
+
+---
+
+## Maintenance: quarterly
+
+Re-run the Gate E task set **unaided** each quarter. A rule the base model now handles
+reliably on its own is **suppressed from the prose prompt (`prompt_include: false`), never
+deleted from the corpus** — a deleted ID would silently un-suppress if the ID were ever
+re-issued, which is exactly why IDs are never re-issued.
+
+**Re-running the citation checkers is not sufficient maintenance.** They verify the corpus
+is still TRUE. Gate E is the only instrument that tests the executing half — whether the
+corpus is still SAFE TO FOLLOW, and whether it is still worth loading at all now that the
+base models have moved. **The usefulness evaluation should travel with any version bump**,
+not only with the quarterly calendar. A `Detect` narrowed to kill a false positive is
+exactly the edit most likely to lose a true positive, and only a re-run can tell you whether
+it did.
+
+A version bump also obliges a re-generation of `upstream/`, which is a projection of the
+corpus with no checker behind it — see the section above.
+
+### Outstanding evaluation debt, as of corpus `0.3.0`
+
+Stated rather than left for a reader to infer from a version number that looks freshly
+validated:
+
+- **The corpus is at `0.3.0`. The last *full ten-task* Gate E run was against `0.1.0`** —
+  round 1. No full-set evaluation has run against any later corpus.
+- **The only evaluation at `0.2.0` was round 2, and it re-ran five of ten tasks** (T02, T03, T08b,
+  T11, T12). It genuinely evaluated both of the `0.1.0` → `0.2.0` narrowings — 20 runs,
+  including two probes built specifically to catch a lost true positive, and none was lost.
+  What has never run against a post-`0.1.0` corpus is **the other five tasks**.
+- **`0.2.0` → `0.3.0` has not been evaluated at all.** It opened `DC-USER-001`'s ownership
+  enumeration and excluded one case from it — a `Detect` change that alters what fires in both
+  directions, which is precisely the class the SAFE-TO-FOLLOW half exists for.
+- **`upstream/` is *not* part of this debt.** It was regenerated with the bump and
+  `upstream/.generated-from` declares the current corpus version — check the sidecar rather
+  than this sentence.
+
+**The obligation this adds up to: a full ten-task Gate E re-run at `0.3.0`, before the
+upstream PR is opened.** That is an acknowledged debt, not completed work. This is the cascade
+a version bump triggers under the rule two paragraphs above; it was
+predicted, it was accepted as the price of a correct corpus edit, and reverting correct work to
+protect a version number would have been the wrong trade.
+
+---
+
+## What this deliberately does not do
+
+Stated so nobody is surprised by an absence:
+
+- **No Dev Container Template authoring guidance.** No rule covers writing or publishing
+  one. The skill says so and points at the `devcontainer templates` subcommands and
+  <https://containers.dev/implementors/templates/>.
+- **No Feature authoring guidance beyond a pointer.** For a Feature author the official
+  harness is the answer, not a hand-written checklist: `devcontainer features test
+  --project-folder .` generates a container per Feature, runs `scenarios.json`, and has a
+  duplicate-install mode. Three rules (`DC-FEAT-001/002/003`) cover consuming and writing
+  Features; the test loop is delegated.
+- **No compose-specific semantic rules.** `dockerComposeFile`, `service` and `runServices`
+  appear in the mechanics and in the not-label-storable list, but no rule reasons about
+  multi-service topologies.
+- **No migration mode.** The skill will not rewrite a working config to match a style
+  preference, and there is no "modernise this for me" path.
+- **No rule covers Feature or image version pinning.** AUTHOR carries a `[OPINION]` "pin
+  versions" bullet and AUDIT will land an unpinned `latest` under `Observations`, but there is
+  **no `Detect` for it anywhere in the twelve rules**, so an unpinned Feature is not a finding
+  and never carries a rule ID. Confirmed twice from opposite directions: the Gate D harness measures a
+  `DC-FEAT-PIN` heuristic that maps onto no rule, and Task 10's verification fixture planted
+  an unpinned Feature as one of four deliberate flaws — it correctly never became a finding.
+  **The twelve rules are not a closed corpus.** They are the twelve that survived a citation
+  pass and a usefulness gate; a config problem with no rule is an `Observations` line, not a
+  claim that nothing is wrong.
+- **No executable checker, and no JSON Schema validation.** `devcontainer.json` validation
+  today is editor-only via SchemaStore; the devcontainer CLI ships none. The skill refuses
+  to claim conformance it did not run. A SARIF-producing checker is Phase 2 and is gated on
+  Gate D, which has not run.
+- **No tool installation, ever.** Every supporting tool (`devcontainer`, `hadolint`,
+  `trivy`, `dockle`, `docker scout`, `decolint`) is probed with `command -v` and reported as
+  absent if absent. Note that `docker scout` is a Docker CLI plugin, so it must be probed as
+  a **subcommand** — `command -v docker-scout` returns a false negative on a machine where
+  `docker scout version` exits 0.
+
+---
+
+## Also in this repository
+
+- `docs/RESEARCH-BRIEF.md` — the dated, adversarially fact-checked research the design rests
+  on, with an `ERRATA` section at the end correcting it rather than rewriting it in place.
+- `docs/sources/` — 26 cached primary sources, so the citation pass can run offline for the
+  nine rules that do not need a live fetch.
+- `docs/gates/` — the empirical gate results, with `gate-d.md` carrying the Gate D
+  search-phase numbers, the shard method and the rate-limit accounting. **The expensive
+  harvest artefacts ship with the repository**: `.gitignore` excludes `docs/gates/.harvest/`,
+  but `hits.uniq.tsv` (4,176 rows: repo, path, blob sha), `harvest.sh` and `fetch.sh` were
+  force-added past that rule on purpose, so the eight minutes of rate-limited code search
+  survive a `git clean -fdx` and a resumer does not have to buy them again.
+  **One thing a resumer should know, though it costs nothing:** `blobs.tsv` — the 4,165-row
+  list deduped by blob sha — is **derived, not stored.** It is not committed, but `fetch.sh`'s
+  first working line is `awk -F'\t' '!seen[$3]++' hits.uniq.tsv > blobs.tsv`, which
+  **regenerates it from the committed hit list unconditionally on every run**, and
+  `gate-d.md`'s resume recipe now quotes that line. So a fresh clone needs nothing extra and
+  the recipe does not fail. A manual dedup on the blob-sha column is only needed if
+  someone drives the fetch some other way. Verified independently from the committed file:
+  4,176 rows deduplicate to **4,165 unique blob shas across 4,064 repos**.
+  `docs/gates/fp-corpus/` is genuinely absent — it is ignored, and it is empty anyway.
+- `upstream/awesome-copilot-devcontainers.instructions.md` — the unsubmitted
+  `github/awesome-copilot` payload and the project's only sanctioned prose projection of the
+  corpus; see the section above for why it is allowed and what it obliges.
+- `tools/wf-preflight.mjs` — unrelated to the skill; validates a Claude Code Workflow script
+  before invocation, catching the failure mode where a markdown backtick inside a
+  backtick-delimited prompt silently closes the template literal and the parser blames the
+  next word.
+- Shared project instructions kept in sync across hosts under host-specific filenames
+  (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `QODER.md`, `.cursorrules`, `.windsurfrules`,
+  `.kiro/steering/`), and MCP wiring for `code-review-graph`. These predate the skill and
+  are workspace configuration, not part of the shipped package. The MCP configs hardcode an
+  absolute `cwd`; update it if you clone this elsewhere.
+
+---
+
+## Licence
+
+MIT — see [`LICENSE`](LICENSE). Copyright (c) 2026 Emil Dan.
+
+The prior art this package critiques ships an MIT licence with no copyright holder, which
+makes the grant hard to rely on. Naming a holder is the cheapest possible fix and there is
+no reason to repeat the omission.

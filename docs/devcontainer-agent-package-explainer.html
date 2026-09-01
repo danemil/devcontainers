@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>One file, two hosts — a dev container skill for Copilot and Claude Code</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  :root {
+    --ivory: #FAF9F5; --slate: #141413; --clay: #D97757; --oat: #E3DACC;
+    --olive: #788C5D; --rust: #B04A3F; --white: #FFFFFF;
+    --gray-150: #F0EEE6; --gray-300: #D1CFC5; --gray-500: #87867F; --gray-700: #3D3D3A;
+    --serif: ui-serif, Georgia, 'Times New Roman', serif;
+    --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+  }
+  body {
+    background: var(--ivory); color: var(--gray-700); font-family: var(--sans);
+    font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+    padding: 52px 28px 110px;
+  }
+  .page { max-width: 1080px; margin: 0 auto; }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; color: var(--slate); }
+  h1 { font-size: 35px; line-height: 1.2; margin-bottom: 12px; }
+  h2 { font-size: 23px; margin-bottom: 6px; }
+  h3 { font-size: 18px; margin-bottom: 8px; }
+  h1 em { font-style: italic; color: var(--clay); }
+  .eyebrow { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gray-500); margin-bottom: 14px; }
+  .sub { color: var(--gray-500); max-width: 680px; }
+  header { margin-bottom: 52px; }
+  section { margin-bottom: 60px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+  .num { font-family: var(--mono); font-size: 12px; background: var(--oat); color: var(--slate); padding: 2px 8px; border-radius: 8px; flex: none; }
+  .card { background: var(--white); border: 1.5px solid var(--gray-300); border-radius: 12px; padding: 22px; }
+  .callout { background: var(--white); border: 1.5px solid var(--gray-300); border-left: 4px solid var(--clay); border-radius: 0 12px 12px 0; padding: 18px 22px; }
+  .callout.good { border-left-color: var(--olive); }
+  .prompt-box { background: var(--gray-150); border-radius: 12px; padding: 14px 18px; margin-top: 20px; }
+  .prompt-box .label { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gray-500); margin-bottom: 6px; }
+  .chip { display: inline-flex; align-items: center; font-family: var(--mono); font-size: 12px; background: var(--gray-150); border: 1.5px solid var(--gray-300); border-radius: 8px; padding: 3px 9px; margin: 0 4px 6px 0; }
+  .badge { display: inline-flex; font-family: var(--mono); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; border-radius: 999px; padding: 2px 10px; }
+  .badge.good { background: #E4E9DC; color: #4B5C39; }
+  .badge.warn { background: #F3D9CC; color: #8A3B1E; }
+  .badge.neutral { background: var(--oat); color: var(--slate); }
+  .code { background: var(--slate); border-radius: 12px; padding: 16px 20px; overflow-x: auto; }
+  .code pre { font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: #E8E6DE; white-space: pre; }
+  .code .kw { color: var(--clay); } .code .str { color: #A8BC8C; }
+  .code .cm { color: var(--gray-500); } .code .fn { color: #C9B98A; }
+  code { font-family: var(--mono); font-size: 0.9em; background: var(--gray-150); padding: 1px 5px; border-radius: 4px; }
+  strong { color: var(--slate); font-weight: 600; }
+  svg { display: block; width: 100%; height: auto; }
+  .caption { font-size: 12px; color: var(--gray-500); margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--gray-500); font-weight: 600; padding: 8px 10px; border-bottom: 1.5px solid var(--gray-300); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--gray-300); vertical-align: top; }
+  td.bad { background: rgba(176,74,63,.08); }
+  td.good { background: rgba(120,140,93,.12); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+  .scroll { overflow-x: auto; }
+  details { border: 1.5px solid var(--gray-300); border-radius: 12px; background: var(--white); padding: 0; margin-bottom: 10px; }
+  details summary { list-style: none; cursor: pointer; padding: 14px 18px; display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-size: 16px; color: var(--slate); }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: '▸'; color: var(--clay); transition: transform .15s; display: inline-block; }
+  details[open] summary::before { transform: rotate(90deg); }
+  details .body { padding: 0 18px 18px 18px; }
+  .ref { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--gray-500); }
+  .rail { position: relative; padding-left: 30px; }
+  .rail::before { content:''; position:absolute; left:5px; top:6px; bottom:6px; width:2px; background: var(--gray-300); }
+  .ev { position: relative; margin-bottom: 22px; }
+  .ev::before { content:''; position:absolute; left:-30px; top:5px; width:12px; height:12px; border-radius:50%; background: var(--gray-500); border:3px solid var(--ivory); }
+  .ev.hot::before { background: var(--clay); }
+  .ev.ok::before { background: var(--olive); }
+  .metric { display:grid; grid-template-columns: repeat(4,1fr); gap:14px; }
+  .metric .m { background: var(--white); border:1.5px solid var(--gray-300); border-radius:12px; padding:16px 18px; }
+  .metric .m.warn { border-left: 4px solid var(--clay); }
+  .metric .v { font-family: var(--serif); font-size: 40px; line-height:1; color: var(--slate); }
+  .metric .l { font-family: var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--gray-500); margin-top:8px; }
+  .gate { display:grid; grid-template-columns: 46px 1fr; gap:14px; align-items:start; margin-bottom:14px; }
+  .gate .g { font-family: var(--mono); font-size:13px; background:var(--clay); color:var(--white); border-radius:8px; text-align:center; padding:6px 0; font-weight:600; }
+  ul { padding-left: 20px; } li { margin-bottom: 5px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:7px; vertical-align:middle; }
+  .dot.p { background: var(--olive); } .dot.c { background: var(--clay); }
+  .term { border-bottom: 1px dotted var(--clay); cursor: help; }
+  .btn { font-family: var(--mono); font-size:12px; background: var(--white); border:1.5px solid var(--gray-300); border-radius:8px; padding:7px 13px; cursor:pointer; color:var(--slate); }
+  .btn:hover { border-color: var(--clay); }
+  .btn.ok { background: var(--olive); color: var(--white); border-color: var(--olive); }
+  .readout { font-family: var(--mono); font-size: 13px; color: var(--clay); font-weight: 600; }
+  .ctl { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px; }
+  .ctl label { font-family: var(--mono); font-size:12px; color:var(--gray-500); }
+  .node { cursor: pointer; }
+  .node rect, .node path { transition: fill .2s, stroke .2s; }
+  .node.active rect { fill: #D97757; stroke: #141413; stroke-width: 2; }
+  .node.active text { fill: #FAF9F5; }
+  @media (max-width: 900px) { .grid-2, .grid-3, .metric { grid-template-columns: 1fr !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <div class="eyebrow">Assessment / devcontainers-best-practices &amp; containers.dev / 31 Aug 2026</div>
+  <h1>One file, two hosts — and <em>twelve facts</em> worth writing down</h1>
+  <p class="sub">What can be built better than <code>afonsograca/devcontainers-best-practices</code>, as skills and agents usable from GitHub Copilot chat, the Copilot CLI, and Claude Code. Five research agents, four candidate architectures, twelve judgments, a six-advisor council, and one completeness critic produced the plan below.</p>
+  <div class="prompt-box">
+    <div class="label">Prompt</div>
+    <div>Evaluate <code>afonsograca/devcontainers-best-practices</code> and <code>containers.dev</code>. Assess what can be done better as a combination of skills and agents usable with both GitHub Copilot chat/CLI and Claude Code. Produce a plan to approve, then execute in another session with subagents per task and Codex as advisor.</div>
+  </div>
+</header>
+
+<!-- ============ 01 THE FINDING ============ -->
+<section>
+  <div class="sec-head"><span class="num">01</span><h2>The finding that changes the architecture</h2></div>
+  <div class="callout" style="margin-bottom:22px">
+    <strong>GitHub Copilot reads <code>.claude/skills/</code>.</strong> Agent Skills went GA on Copilot on 2025-12-18 as an open standard explicitly interoperable with <code>anthropics/skills</code>. Copilot's project skill directories are <code>.github/skills/</code>, <code>.claude/skills/</code>, <em>and</em> <code>.agents/skills/</code> — across VS Code agent mode, the Copilot CLI, the cloud agent, and code review.
+    <div style="margin-top:10px">So a single physical <code>SKILL.md</code> serves both hosts. No generator. No symlink. No <code>rulesync</code>. The dual-host problem that would have dominated this design mostly <strong>does not exist</strong> — at the skill layer.</div>
+  </div>
+
+  <h3 style="margin-bottom:12px">Where it still does exist</h3>
+  <figure>
+    <svg viewBox="0 0 980 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram: one shared SKILL.md read by both hosts, with divergent agent, prompt and MCP surfaces at the edges">
+      <defs>
+        <style>
+          .m { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; }
+          .s { font-family: system-ui, sans-serif; font-size: 12px; }
+          .t { font-family: ui-serif, Georgia, serif; font-size: 14px; }
+        </style>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="#788C5D"/></marker>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L10,5 L0,10 z" fill="#B04A3F"/></marker>
+      </defs>
+      <rect width="980" height="400" fill="#FAF9F5"/>
+
+      <!-- shared core -->
+      <rect x="350" y="150" width="280" height="96" rx="10" fill="#D97757" stroke="#141413" stroke-width="2"/>
+      <text x="490" y="182" text-anchor="middle" class="m" fill="#FAF9F5">.claude/skills/devcontainers/</text>
+      <text x="490" y="202" text-anchor="middle" class="m" fill="#FAF9F5">SKILL.md</text>
+      <text x="490" y="226" text-anchor="middle" class="m" fill="#FAF9F5" opacity=".82">+ references/*.md</text>
+      <text x="490" y="272" text-anchor="middle" class="s" fill="#87867F">one physical file — zero adapters</text>
+
+      <!-- hosts -->
+      <rect x="40" y="60" width="200" height="66" rx="10" fill="#F0EEE6" stroke="#3D3D3A" stroke-width="1.5"/>
+      <text x="140" y="88" text-anchor="middle" class="t" fill="#141413">Claude Code</text>
+      <text x="140" y="108" text-anchor="middle" class="m" fill="#3D3D3A">CLI · IDE</text>
+
+      <rect x="740" y="60" width="200" height="66" rx="10" fill="#F0EEE6" stroke="#3D3D3A" stroke-width="1.5"/>
+      <text x="840" y="88" text-anchor="middle" class="t" fill="#141413">GitHub Copilot</text>
+      <text x="840" y="108" text-anchor="middle" class="m" fill="#3D3D3A">VS Code · CLI · cloud · review</text>
+
+      <path d="M140,126 C140,180 300,190 348,194" fill="none" stroke="#788C5D" stroke-width="2" marker-end="url(#ar)"/>
+      <path d="M840,126 C840,180 680,190 632,194" fill="none" stroke="#788C5D" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="222" y="160" class="m" fill="#788C5D">reads</text>
+      <text x="716" y="160" class="m" fill="#788C5D">reads</text>
+
+      <!-- divergent edges -->
+      <rect x="40" y="300" width="230" height="66" rx="10" fill="#FAF9F5" stroke="#B04A3F" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="155" y="324" text-anchor="middle" class="m" fill="#B04A3F">.claude/agents/*.md</text>
+      <text x="155" y="342" text-anchor="middle" class="m" fill="#B04A3F">.mcp.json · hooks · plugins</text>
+      <text x="155" y="358" text-anchor="middle" class="s" fill="#87867F">Claude-only</text>
+
+      <rect x="710" y="300" width="230" height="66" rx="10" fill="#FAF9F5" stroke="#B04A3F" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="825" y="324" text-anchor="middle" class="m" fill="#B04A3F">.github/agents/*.agent.md</text>
+      <text x="825" y="342" text-anchor="middle" class="m" fill="#B04A3F">.github/prompts · .vscode/mcp.json</text>
+      <text x="825" y="358" text-anchor="middle" class="s" fill="#87867F">Copilot-only</text>
+
+      <path d="M155,300 C155,262 300,250 348,240" fill="none" stroke="#B04A3F" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#ar2)"/>
+      <path d="M825,300 C825,262 680,250 632,240" fill="none" stroke="#B04A3F" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#ar2)"/>
+
+      <rect x="352" y="312" width="276" height="54" rx="10" fill="#E3DACC" stroke="#3D3D3A" stroke-width="1.5"/>
+      <text x="490" y="334" text-anchor="middle" class="m" fill="#141413">.github/instructions/…instructions.md</text>
+      <text x="490" y="352" text-anchor="middle" class="s" fill="#3D3D3A">pointer only · zero rules · cannot drift</text>
+    </svg>
+    <p class="caption">Olive = the shared path that needs no adapter. Rust dashed = surfaces with no cross-host equivalent. The v0.1 design puts <em>nothing of value</em> on the rust edges.</p>
+  </figure>
+</section>
+
+<!-- ============ 02 THE SUBJECT ============ -->
+<section>
+  <div class="sec-head"><span class="num">02</span><h2>What <code>afonsograca/devcontainers-best-practices</code> actually is</h2></div>
+  <div class="metric" style="margin-bottom:20px">
+    <div class="m"><div class="v">7</div><div class="l">best-practice rules, total</div></div>
+    <div class="m"><div class="v">1</div><div class="l">GitHub star</div></div>
+    <div class="m warn"><div class="v">93d</div><div class="l">since last commit</div></div>
+    <div class="m warn"><div class="v">0</div><div class="l">releases · tags · forks</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h3>What it gets right</h3>
+      <ul>
+        <li><strong>Correct discipline.</strong> It refuses to assert unofficial advice: <em>"When the spec or official docs do not state a recommendation, do not present it as a best practice."</em> That is the right instinct and most prior art lacks it.</li>
+        <li><strong>Right format.</strong> Anthropic-style <code>SKILL.md</code> with progressive-disclosure <code>references/</code>, which — as of Dec 2025 — is the format both hosts read.</li>
+        <li><strong>Good routing.</strong> It points at canonical <code>containers.dev</code> URLs rather than paraphrasing them.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Where it fails</h3>
+      <ul>
+        <li><strong>It is a router, not a rule set.</strong> Seven rules, zero execution, zero audit, zero generation.</li>
+        <li><strong>The README overstates the skill.</strong> It advertises "use Features when possible", "non-root user", "prefer official Features/templates" — <em>none of which appear in SKILL.md as rules</em>.</li>
+        <li><strong>It has already rotted.</strong> Its Zed claims contradict current Zed docs. Its CHANGELOG links a <code>v0.1.0</code> tag that does not exist, so the README version badge is broken. Its MIT LICENSE has no copyright holder.</li>
+        <li><strong>Real spec gaps:</strong> never mentions <code>waitFor</code>, <code>secrets</code>, lockfiles, feature dependency resolution, image-metadata merge rules, or <code>updateRemoteUserUID</code>.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 THE GAP ============ -->
+<section>
+  <div class="sec-head"><span class="num">03</span><h2>The feedback loop today, and where it is broken</h2></div>
+  <figure>
+    <svg viewBox="0 0 980 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Four feedback loops for a devcontainer.json, three of which give no semantic feedback">
+      <defs><style>
+        .m { font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+        .s { font-family: system-ui, sans-serif; font-size: 11.5px; }
+      </style></defs>
+      <rect width="980" height="250" fill="#FAF9F5"/>
+
+      <rect x="30" y="60" width="200" height="80" rx="10" fill="#F0EEE6" stroke="#3D3D3A" stroke-width="1.5"/>
+      <text x="130" y="86" text-anchor="middle" class="m" fill="#3D3D3A">editor (SchemaStore)</text>
+      <text x="130" y="106" text-anchor="middle" class="s" fill="#87867F">~1 ms · squiggles</text>
+      <circle cx="130" cy="128" r="8" fill="#788C5D" stroke="#141413" stroke-width="1.5"/>
+      <path d="M126,128 L129,131 L135,124" fill="none" stroke="#FAF9F5" stroke-width="1.5" stroke-linecap="round"/>
+      <text x="130" y="168" text-anchor="middle" class="s" fill="#3D3D3A">unknown properties only</text>
+      <text x="130" y="186" text-anchor="middle" class="s" fill="#87867F">VS Code only — not CLI, cloud, CI</text>
+
+      <rect x="270" y="60" width="200" height="80" rx="10" fill="#F0EEE6" stroke="#3D3D3A" stroke-width="1.5"/>
+      <text x="370" y="86" text-anchor="middle" class="m" fill="#3D3D3A">container rebuild</text>
+      <text x="370" y="106" text-anchor="middle" class="s" fill="#87867F">3–10 min</text>
+      <circle cx="370" cy="128" r="8" fill="#FAF9F5" stroke="#D97757" stroke-width="2"/>
+      <line x1="366" y1="124" x2="374" y2="132" stroke="#D97757" stroke-width="1.5"/>
+      <line x1="374" y1="124" x2="366" y2="132" stroke="#D97757" stroke-width="1.5"/>
+      <text x="370" y="168" text-anchor="middle" class="s" fill="#3D3D3A">"does it build" and nothing else</text>
+
+      <rect x="510" y="60" width="200" height="80" rx="10" fill="#F0EEE6" stroke="#3D3D3A" stroke-width="1.5"/>
+      <text x="610" y="86" text-anchor="middle" class="m" fill="#3D3D3A">devcontainer CLI</text>
+      <text x="610" y="106" text-anchor="middle" class="s" fill="#87867F">parses + merges</text>
+      <circle cx="610" cy="128" r="8" fill="#FAF9F5" stroke="#D97757" stroke-width="2"/>
+      <line x1="606" y1="124" x2="614" y2="132" stroke="#D97757" stroke-width="1.5"/>
+      <line x1="614" y1="124" x2="606" y2="132" stroke="#D97757" stroke-width="1.5"/>
+      <text x="610" y="168" text-anchor="middle" class="s" fill="#3D3D3A">ships no schema validator</text>
+
+      <rect x="750" y="60" width="200" height="80" rx="10" fill="#FAF9F5" stroke="#B04A3F" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="850" y="86" text-anchor="middle" class="m" fill="#B04A3F">CI</text>
+      <text x="850" y="106" text-anchor="middle" class="s" fill="#B04A3F">nothing</text>
+      <circle cx="850" cy="128" r="8" fill="#FAF9F5" stroke="#B04A3F" stroke-width="2"/>
+      <line x1="846" y1="124" x2="854" y2="132" stroke="#B04A3F" stroke-width="1.5"/>
+      <line x1="854" y1="124" x2="846" y2="132" stroke="#B04A3F" stroke-width="1.5"/>
+      <text x="850" y="168" text-anchor="middle" class="s" fill="#B04A3F">no semantic check exists</text>
+
+      <text x="490" y="222" text-anchor="middle" class="s" fill="#87867F">Not one of these tells you that expensive work in postCreateCommand is never baked into a Codespaces prebuild.</text>
+    </svg>
+  </figure>
+
+  <h3 style="margin:26px 0 12px">Prior art, and what each one is not</h3>
+  <div class="scroll"><table>
+    <tr><th>Project</th><th>What it is</th><th>What it is not</th><th>Health</th></tr>
+    <tr><td><code>decolint</code></td><td>The only standalone devcontainer linter. 31 rules. Has a <code>--merge</code> mode resolving the <em>effective</em> config after Features and image metadata.</td><td class="bad">No JSON-Schema conformance — no unknown/misspelled property rule at all.</td><td>Go · 1★ · 7 weeks old · needs <code>GOEXPERIMENT=jsonv2</code></td></tr>
+    <tr><td>Trail of Bits <code>devcontainer-setup</code></td><td>The most-used devcontainer Claude skill. Scaffolds Dockerfile + devcontainer.json for Python/Node/Rust/Go.</td><td class="bad">A generator. Its "validation" is a template-substitution checklist.</td><td>Maintained, 6.9k★ parent repo</td></tr>
+    <tr><td><code>mmalyska</code> devcontainer plugin</td><td>Closest prior art — has a <code>devcontainer-auditor</code> agent.</td><td class="bad">Checklist hard-coded to the author's own Renovate and WireGuard setup.</td><td>0★ · no licence · personal marketplace</td></tr>
+    <tr><td><code>github/awesome-copilot</code></td><td>The canonical, GitHub-maintained, high-traffic Copilot customization catalogue.</td><td class="bad"><strong>Contains zero devcontainer instructions, prompts, or chat modes.</strong></td><td class="good">Actively maintained — and open</td></tr>
+    <tr><td><code>devcontainer features test</code></td><td>Official conformance harness for Feature <em>authors</em>. Scenarios, duplicate-install mode.</td><td class="bad">Tests behaviour, not design. Nothing for config consumers.</td><td class="good">Actively maintained</td></tr>
+  </table></div>
+  <p class="caption">Five independent signals of thin demand. The completeness critic read them the other way: the prior art may be thin <em>because the market is thin</em> — see §07.</p>
+</section>
+
+<!-- ============ 04 THE INTERACTIVE PIECE ============ -->
+<section>
+  <div class="sec-head"><span class="num">04</span><h2>The portable frontmatter intersection — try it</h2></div>
+  <p style="margin-bottom:16px; max-width:760px">The one thing a shared <code>SKILL.md</code> genuinely cannot dodge: the two hosts accept different frontmatter keys, and a third consumer (claude.ai upload / the Skills API) is stricter than both. Toggle the targets you need and watch the legal key set shrink.</p>
+  <div class="card">
+    <div class="ctl">
+      <label><input type="checkbox" class="tgt" data-t="claude" checked> Claude Code</label>
+      <label><input type="checkbox" class="tgt" data-t="copilot" checked> GitHub Copilot</label>
+      <label><input type="checkbox" class="tgt" data-t="api" checked> claude.ai upload / Skills API</label>
+    </div>
+    <div id="keys" style="margin-bottom:14px"></div>
+    <div class="readout" id="ro"></div>
+    <div class="code" style="margin-top:14px"><pre id="fm"></pre></div>
+    <div style="margin-top:14px"><button class="btn" id="copy">Copy frontmatter</button></div>
+  </div>
+  <div class="callout" style="margin-top:18px">
+    <strong>Five keys are portable. We ship four — and that is a choice, not a constraint.</strong> <code>allowed-tools</code> <em>is</em> in the portable set. Its <em>values</em> are not: Claude writes <code>Bash(node:*)</code>, Copilot's grammar is a different kind namespace (<code>shell(...)</code>, <code>write</code>). A single string is wrong on one host either way, so the design omits the key and lets each host apply its own permission flow. <strong>Portability of a key does not imply portability of its value.</strong>
+    <div style="margin-top:10px"><span class="badge warn">unverified</span> <code>metadata</code> is in the agentskills.io portable six but is <em>not</em> in Copilot's own documented optional-key list. Gate A settles it; if Copilot balks, <code>corpus_version</code> moves into the body and the shipped set drops to three.</div>
+  </div>
+</section>
+
+<!-- ============ 05 THE COUNCIL ============ -->
+<section>
+  <div class="sec-head"><span class="num">05</span><h2>Four architectures, six advisors, one split decision</h2></div>
+  <div class="scroll"><table style="margin-bottom:20px">
+    <tr><th>Candidate</th><th>The bet</th><th>Score</th><th>Killed by</th></tr>
+    <tr><td><strong>One Skill, Thirty Rules</strong></td><td>One SKILL.md + two reference files. No script, no agent, no CI. The interpreter is the model.</td><td><span class="badge good">39 / 50</span></td><td>No way to tell "the skill didn't fire" from "you're fine".</td></tr>
+    <tr><td><strong>Party Wall</strong></td><td>Portable intersection as the load-bearing wall; ajv over the vendored schema for drift-free conformance.</td><td><span class="badge neutral">37.3 / 50</span></td><td>Its flagship validator doesn't compile as specified — <code>base.json</code> is draft 2019-09.</td></tr>
+    <tr><td><strong>Chapter &amp; Verse</strong></td><td>The citation-bearing rule corpus is the product; skills, agent and checker are thin, disposable readers.</td><td><span class="badge neutral">36 / 50</span></td><td>Determinism rests on the model choosing to run the checker.</td></tr>
+    <tr><td><strong>Plumbline</strong></td><td>An executable oracle is the only artifact that ports cleanly; skills are interpreters, not rule libraries.</td><td><span class="badge warn">33 / 50</span></td><td>Whether the agent is <em>permitted</em> to shell out is policy, not a spec fact.</td></tr>
+  </table></div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3><span class="dot c"></span>Split verdict</h3>
+      <p style="margin-bottom:10px"><strong>Fowler, Uncle Bob, Newman</strong> → <em>Chapter &amp; Verse</em>. It is the only design layered by <em>rate of change</em>: the corpus moves when the spec moves, the readers move when a vendor renames a key.</p>
+      <p style="margin-bottom:10px"><strong>Beck, Hightower</strong> → <em>One Skill</em>. Nobody has run this on a real repo yet, so nobody knows the false-positive rate or whether the skill even fires. Three candidates answer unknowns by building a validator around them.</p>
+      <p><strong>Kim</strong> → <em>Party Wall</em>, for shortening the broken CI loop.</p>
+    </div>
+    <div class="card" style="border-left:4px solid var(--rust)">
+      <h3>What four of six independently refused</h3>
+      <p style="margin-bottom:10px"><strong>Any generated prose projection of the rule corpus into the model's context.</strong> A <code>RULES.md</code>, or an <code>applyTo</code>-globbed instructions file listing every rule.</p>
+      <p>Two reasons, both fatal. It installs a <em>second source of truth</em> at the consumption boundary. And it hands the model a fluent <em>answer key</em>, so it can produce a confident-sounding audit without ever running the check.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 06 THE PLAN ============ -->
+<section>
+  <div class="sec-head"><span class="num">06</span><h2>The plan</h2></div>
+
+  <h3 style="margin-bottom:14px">Phase 0 — five gates that block everything <span class="badge warn" style="margin-left:8px">A–C: 2–3 h · D: ~1 d · E: after the draft</span></h3>
+  <p style="margin-bottom:16px; max-width:760px">Every candidate asserted A–D rather than checking them. Gate E came from the Codex review and is the one that tests the actual claim. Each gate, if it fails, invalidates a different piece — which is exactly why they go first.</p>
+  <div class="gate"><div class="g">A</div><div><strong>Do the skill installers preserve subdirectories and the executable bit?</strong> <code>npx skills add</code>, <code>gh skill add</code>, <code>copilot skill add</code>. If any flattens the tree, every design with <code>bin/</code> or <code>references/</code> breaks <em>on its own advertised install channel</em>.</div></div>
+  <div class="gate"><div class="g">B</div><div><strong>Does Copilot resolve skill-relative <code>references/*.md</code> from <code>.claude/skills/</code>?</strong> Documented for <code>.github/skills/</code>; unverified from the shared directory. Level-3 progressive disclosure — the whole reason depth is affordable — depends on it.</div></div>
+  <div class="gate"><div class="g">C</div><div><strong>Can Copilot code review shell out?</strong> It is the highest-value surface for an auditor (findings land on the diff) and is plausibly non-executing. If it cannot, the executable-checker story dies exactly where determinism mattered.</div></div>
+  <div class="gate"><div class="g">D</div><div><strong>What are the false-positive <em>and recall</em> rates on ~300 real public <code>devcontainer.json</code> files?</strong> Every quality gate proposed so far is self-referential: fixtures are built to trip the rule they test and pass by construction. <em>Decides whether Phase 2 exists.</em> Above ~10% FP on working configs, prose-with-citations wins. Budget half a day to a day — the hand-adjudication cannot be automated without defeating the point.</div></div>
+  <div class="gate" style="margin-top:20px"><div class="g" style="background:var(--slate)">E</div><div><strong>Does the skill actually get selected, and does it change the answer?</strong> Ten realistic tasks with expert-labelled correct answers, run on three surfaces with the skill installed and removed — 60 runs. Three numbers: <strong>firing rate</strong>, <strong>lift</strong> (correct-with minus correct-without), and <strong>harm</strong> (tasks made worse). <em>This is the Phase 1 exit criterion, and no candidate architecture contained it.</em>
+  <div style="margin-top:8px"><span class="badge good">lift ≥3/10, harm 0</span> ship · <span class="badge neutral">lift 1–2</span> the problem is selection, not rules — rewrite the description, don't add rules · <span class="badge warn">lift 0</span> <strong>stop.</strong> Fall back to twelve facts in <code>AGENTS.md</code> and record that as the finding.</div></div></div>
+
+  <h3 style="margin:32px 0 14px">Phase 1 — v0.1: the honest delta <span class="badge good" style="margin-left:8px">prose only</span></h3>
+  <div class="scroll"><table>
+    <tr><th>Path</th><th>Host</th><th>What it is</th></tr>
+    <tr><td><code>.claude/skills/devcontainers/SKILL.md</code></td><td>both</td><td>~180 lines. Three modes by intent: AUDIT (reports by rule ID, never edits), AUTHOR, DEBUG (symptom-keyed). Four frontmatter keys only.</td></tr>
+    <tr><td><code>…/references/rules.md</code></td><td>both</td><td><strong>Twelve rules.</strong> Each: banded never-reused ID · severity · <code>SPEC</code>|<code>OPINION</code> tier · source URL + verbatim quote &lt;300 chars · <code>verified_on</code> date · detection · fix.</td></tr>
+    <tr><td><code>…/references/spec-facts.md</code></td><td>both</td><td>Lifecycle mechanics and marker-file re-run gating, feature topological ordering, image-metadata merge rules, Codespaces divergences, the named-volume perf fix <em>and its root-ownership chown</em>.</td></tr>
+    <tr><td><code>.github/instructions/devcontainers.instructions.md</code></td><td>copilot-vscode</td><td>Six lines. <strong>Pointer only, zero rules</strong> — so it cannot drift. Exists because VS Code has silent path-scoped inline-edit surfaces where description-matching never fires.</td></tr>
+    <tr><td><code>README.md</code></td><td>—</td><td>The portability contract, the tier convention, hand-run cross-host verification prompts, and the named flip-triggers.</td></tr>
+  </table></div>
+  <p style="margin-top:14px"><span class="badge warn">not shipped at v0.1</span> &nbsp;No agent files — Claude and Copilot agent formats diverge and there is no consumer yet. No generator. No CI. No plugin marketplace. No generated prose projection of the corpus, anywhere.</p>
+
+  <h3 style="margin:32px 0 14px">The twelve rules — the facts a model gets wrong unaided</h3>
+  <p style="margin-bottom:14px; max-width:760px">Not thirty. Twelve. The corpus is the delta between what a frontier model already knows and what it confidently gets wrong — which shrinks as models improve, so the corpus should shrink too.</p>
+  <div id="rules"></div>
+
+  <h3 style="margin:32px 0 14px">Phase 2 — conditional on Gate D <span class="badge neutral" style="margin-left:8px">only if clean</span></h3>
+  <div class="grid-2">
+    <div class="card">
+      <ul>
+        <li><code>bin/dcaudit.mjs</code> — zero-dependency Node, stdlib only, ~150 lines, bare <code>node</code>, no <code>package.json</code>, no build step.</li>
+        <li><strong>The JSONC decision is forced before a line is written.</strong> <code>devcontainer.json</code> allows comments and trailing commas; <code>JSON.parse</code> does not; a regex stripper mangles <code>//</code> inside strings. Either shell out to <code>devcontainer read-configuration</code>, or write a real character-scanner — <em>or abandon Phase 2 and contribute to decolint instead</em>. This is where a home-grown checker quietly becomes a worse decolint.</li>
+        <li>A <strong>provenance header</strong> (<code>tool_version</code> + <code>corpus_version</code> + <code>generated_on</code>). It is <em>not</em> tamper-evident — it is self-reported, and anything can emit three plausible lines. What it buys honestly: when the checker did not run, the header is absent, so "the skill silently stopped firing and you got a confident wrong answer" becomes a visibly missing line.</li>
+        <li>Corpus moves to <code>rules.json</code> + <code>rules.schema.json</code>, with a bijection test against the checker.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <ul>
+        <li>Fixtures: <code>fixtures/clean/</code> tripping nothing, <code>fixtures/dirty/</code> tripping a known ID list.</li>
+        <li>SARIF to GitHub code scanning, Actions annotations as fallback. A finding on the diff line is a different product from a finding in a log nobody opens.</li>
+        <li>A recommended <code>.claude/settings.json</code> permissions snippet and the matching Copilot CLI <code>--allow-tool</code> line, so the checker is pre-approved instead of prompting.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 style="margin:32px 0 14px">Phase 3 — upstream, and run it early</h3>
+  <div class="callout good">
+    <strong>Send the <code>github/awesome-copilot</code> pull request first.</strong> That repo has zero devcontainer instruction, prompt, or chat-mode files today. One file, reviewed and maintained by someone else, reaches more users on day one than a standalone repo will in a year — with zero ongoing maintenance surface, zero portability lint, zero distribution question.
+    <div style="margin-top:10px">Then a PR to <code>decolint</code> for the 5–8 semantic rules it lacks (lifecycle placement against prebuild boundaries, <code>waitFor</code> enum legality, label-storability, <code>${devcontainerId}</code> scoping, Codespaces divergence, <code>userEnvProbe</code>) — inheriting its <code>--merge</code> effective-config resolution instead of rebuilding it.</div>
+  </div>
+
+  <h3 style="margin:32px 0 14px">Phase 4 — the mechanism nobody else proposed</h3>
+  <div class="card" style="border-left:4px solid var(--clay)">
+    <p><strong>Quarterly, re-run the Gate E task set unaided — and suppress every rule the base model now gets right.</strong></p>
+    <p style="margin-top:10px">Every proposal on the table has machinery for <em>adding</em> rules, <em>citing</em> rules, and detecting <em>stale citations</em>. None has machinery for detecting a rule that has become <em>unnecessary</em>. The value of this corpus decays monotonically as models train on <code>containers.dev</code>; within a year the honest set may be five facts, not twelve. A freshness job detects a moved URL. Only this detects a rule that stopped earning its place.</p>
+    <p style="margin-top:10px"><strong>Suppress — never delete.</strong> The first draft of this plan said delete; the Codex review was right that it is unsound. Passing an eval once is not evidence a model applies a fact reliably in a noisy repo, on every surface, at every version. A suppressed rule sets <code>prompt_include: false</code>: it leaves the prose the model reads but stays in the corpus, the checker, and any SARIF baseline. <em>Suppression is reversible when a model regresses. Deletion is not.</em></p>
+  </div>
+</section>
+
+<!-- ============ 07 THE CASE AGAINST ============ -->
+<section>
+  <div class="sec-head"><span class="num">07</span><h2>The strongest case against building any of it</h2></div>
+  <div class="grid-2">
+    <div class="card" style="border-left:4px solid var(--rust)">
+      <h3>Do nothing</h3>
+      <p>Revealed demand is near zero and it is <em>measured</em>, not inferred: afonsograca 1★ and abandoned at three months; decolint 1★; mmalyska 0★ and unlicensed; awesome-copilot has zero devcontainer files; <code>anthropics/skills</code> has none. The most-used devcontainer skill in the wild is a <strong>generator</strong> — people want a devcontainer created, not audited.</p>
+      <p style="margin-top:10px">Every architecture here reasons "the prior art is thin, therefore build a better one." The alternative reading — <em>the prior art is thin because the market is thin</em> — was never entertained until the critic raised it.</p>
+    </div>
+    <div class="card">
+      <h3>The cheaper ladder nobody costed</h3>
+      <p><strong>Rung 0 —</strong> nothing. Accept the editor squiggles and the rebuild error.</p>
+      <p style="margin-top:8px"><strong>Rung 1 —</strong> twelve facts in the <code>AGENTS.md</code> the team already has, plus one <code>@AGENTS.md</code> line in <code>CLAUDE.md</code> (Claude Code does not read AGENTS.md; Copilot does). <em>Thirty minutes, reaches both hosts today, and a fact you did not write down cannot rot.</em></p>
+      <p style="margin-top:8px"><strong>Rung 2 —</strong> the same twelve facts as one portable <code>SKILL.md</code> with a source URL and a date on each. This is Phase 1.</p>
+      <p style="margin-top:10px">Rung 1 captures most of the value at roughly 2% of any proposal's cost — and no candidate costed it.</p>
+    </div>
+  </div>
+
+  <h3 style="margin:26px 0 12px">What every candidate missed</h3>
+  <details><summary>Lifecycle commands have an object form that runs in <em>parallel</em> <span class="ref">base.json</span></summary><div class="body"><code>postCreateCommand</code> is <code>"type": ["string","array","object"]</code>, and each object entry runs concurrently. Not one of four candidates mentions it — and it silently breaks every proposed "is this command expensive" heuristic, which all assume a single shell string.</div></details>
+  <details><summary><code>userEnvProbe</code> — the answer to the most common devcontainer question there is <span class="ref">devContainerCommon</span></summary><div class="body">Enum <code>none|loginShell|loginInteractiveShell|interactiveShell</code>, default <code>loginInteractiveShell</code>. It is the mechanistic explanation for "why does my command work in the terminal but not in <code>postCreateCommand</code>", and it is one line of a rule. Zero coverage anywhere.</div></details>
+  <details><summary><code>_REMOTE_USER</code>, <code>_CONTAINER_USER</code>, <code>_REMOTE_USER_HOME</code>, <code>_CONTAINER_USER_HOME</code> <span class="ref">features spec</span></summary><div class="body">Feature install scripts run as <strong>root</strong>; these four variables are the only sanctioned way to learn the eventual user. It is the #1 cause of root-owned files in a Feature. Three candidates ship a root-owned-files rule that <em>this fact explains</em>, and none names it.</div></details>
+  <details><summary><code>devcontainer features resolve-dependencies</code> — the official oracle, unused <span class="ref">CLI</span></summary><div class="body">Three candidates hand-author prose rules about <code>dependsOn</code> vs <code>installsAfter</code> vs <code>overrideFeatureInstallOrder</code> — the hardest corner of the spec — and not one calls the maintained command that simply prints the resolved order.</div></details>
+  <details><summary><code>customizations</code> is an open namespace with no registry — so it is the legal home for config <span class="ref">spec</span></summary><div class="body">Two candidates invented and then deferred an rc-file for per-repo rule suppression. The config file already has a spec-sanctioned address inside <code>devcontainer.json</code>. The same fact is also why an unknown-property check must never descend into <code>customizations.*</code>.</div></details>
+  <details><summary>The Claude-Code-in-a-devcontainer cluster <span class="ref">3 footguns</span></summary><div class="body"><code>--dangerously-skip-permissions</code> is <strong>rejected as root</strong>, so <code>remoteUser</code> must be non-root. Auth persistence needs a volume at <code>~/.claude</code> <em>and</em> <code>CLAUDE_CONFIG_DIR</code> set, because <code>~/.claude.json</code> lives <em>outside</em> <code>~/.claude</code>. The reference firewall needs <code>NET_ADMIN</code> + <code>NET_RAW</code> via <code>runArgs</code>. For a package built for Claude Code and Copilot users, one candidate covered one third of one of these.</div></details>
+  <details><summary>Unserved jobs: Templates, compose, migration, prebuild economics, WSL2/arm64</summary><div class="body"><strong>Zero</strong> of four candidates mention <code>devcontainer-template.json</code> at all. Across ~20–30 proposed rules there is not one compose-specific semantic rule — so anyone with a database in their dev environment is unserved. Nobody offers migration ("bring our 2021 config to 2026") as a first-class job, nobody frames prebuild economics as the money question it is, and no corpus covers WSL2 filesystem placement or arm64/amd64 mismatch — a leading "won't build" cause.</div></details>
+
+  <h3 style="margin:26px 0 12px">What makes this obsolete</h3>
+  <div class="rail">
+    <div class="ev hot"><strong>6–12 months — <code>devcontainer validate</code> ships upstream.</strong> The CLI shipped 0.86, 0.87 and 0.89 in 2026 alone; schema conformance is its most obvious missing subcommand. The week it lands, three candidates' flagship differentiator becomes a wrapper around one command.</div>
+    <div class="ev hot"><strong>3–9 months — decolint grows the eight semantic rules.</strong> Seven weeks old and moving. It already owns effective-config <code>--merge</code> resolution that nobody wants to rebuild.</div>
+    <div class="ev"><strong>12 months, certain — the model learns the rules.</strong> The whole thesis is "facts a model gets wrong unaided." That set shrinks monotonically. Phase 4 is the only defence anyone proposed.</div>
+    <div class="ev ok"><strong>Which is why Phase 3 comes early.</strong> An upstream PR keeps its value when the package does not.</div>
+  </div>
+</section>
+
+<!-- ============ 08 EXECUTION ============ -->
+<section>
+  <div class="sec-head"><span class="num">08</span><h2>Executing it in the next session</h2></div>
+  <div class="grid-3">
+    <div class="card"><h3>Gates A–C → 3 subagents</h3><p>Fully parallel, no shared state, ~2–3 h. Each returns a structured verdict. Gate D is its own day-long task; <strong>Gate E runs after the draft skill exists and is the Phase 1 exit criterion.</strong></p></div>
+    <div class="card"><h3>Phase 1 → 4 subagents</h3><p>One per artefact: SKILL.md body · rules.md (12 rules with citations) · spec-facts.md · README + pointer. Then one <em>citation verifier</em> that re-opens every URL and checks every quote before anything merges.</p></div>
+    <div class="card"><h3>Codex as advisor</h3><p>At each phase boundary, not in the loop. Time-boxed and non-blocking — and check for an empty payload before treating a non-zero exit as a review. <strong>Its first pass already changed nine things in this plan.</strong></p></div>
+  </div>
+
+  <h3 style="margin:30px 0 14px">What the Codex advisory changed</h3>
+  <div class="scroll"><table>
+    <tr><th>Its objection</th><th>Change made</th></tr>
+    <tr><td><code>allowed-tools</code> <em>is</em> in the portable set — "four keys are the only legal set" is false</td><td class="good">Corrected throughout: five portable, four shipped, omission stated as a choice</td></tr>
+    <tr><td>"Read verbatim by all Copilot surfaces" overstates progressive disclosure</td><td class="good">Rewritten to "discovered by"; firing became something Gate E measures</td></tr>
+    <tr><td>The pointer instructions file has an unproven mechanism</td><td class="good">Folded into Gate E with an explicit delete-if-inert rule</td></tr>
+    <tr><td>Gate D can't fit 2–3 h, and needs recall as well as false positives</td><td class="good">Rebudgeted to ~1 day; recall measurement added</td></tr>
+    <tr><td>A stdlib JSONC parser is how you accidentally rebuild a worse decolint</td><td class="good">Phase 2 now forces a three-way parser decision; regex stripper ruled out</td></tr>
+    <tr><td>The "tamper-evident header" is not tamper-evident</td><td class="good">Renamed, property honestly restated, hash-binding named as the real fix</td></tr>
+    <tr><td>"Matching" Claude/Copilot permission lines is a portability mirage</td><td class="good">Reworded; the surfaces neither covers are now named</td></tr>
+    <tr><td>Deleting rules the model knows is unsound</td><td class="good">Replaced with reversible <code>prompt_include: false</code> suppression</td></tr>
+    <tr><td><strong>Missing: a blinded usefulness evaluation</strong></td><td class="good"><strong>Added as Gate E, and made the Phase 1 exit criterion</strong></td></tr>
+    <tr><td>The upstream PR's reach is speculation, not evidence</td><td class="bad"><strong>Partly declined.</strong> The rules' correctness rests on citation, not on whether the skill fires — so the PR stays a first-class task. Conceded the sequencing: it now gates on Gate E instead of running unconditionally.</td></tr>
+  </table></div>
+  <div class="callout" style="margin-top:20px">
+    <strong>The one non-negotiable review gate:</strong> no rule merges without a source URL, a verbatim quote under 300 characters, a <code>verified_on</code> date, and a <code>SPEC</code> or <code>OPINION</code> tag. That is the single discipline afonsograca got right and mmalyska got wrong — and it is what stops this from becoming another 1-star repo with a broken version badge.
+  </div>
+</section>
+
+<footer style="border-top:1.5px solid var(--gray-300); padding-top:18px; font-family:var(--mono); font-size:11px; color:var(--gray-500)">
+  Sources: containers.dev spec + devContainer.base.schema.json · devcontainers/cli · code.claude.com/docs · docs.github.com/copilot · code.visualstudio.com/docs/copilot · afonsograca/devcontainers-best-practices · decolint · github/awesome-copilot. Gathered and adversarially fact-checked 2026-08-31.
+</footer>
+
+</div>
+<script>
+// ---- portable frontmatter demo ----
+const KEYS = [
+  { k: 'name',                    claude: 1, copilot: 1, api: 1 },
+  { k: 'description',             claude: 1, copilot: 1, api: 1 },
+  { k: 'license',                 claude: 1, copilot: 1, api: 1 },
+  { k: 'metadata',                claude: 1, copilot: 1, api: 1 },
+  { k: 'compatibility',           claude: 1, copilot: 0, api: 1 },
+  { k: 'allowed-tools',           claude: 1, copilot: 1, api: 1, valueSplit: 1 },
+  { k: 'argument-hint',           claude: 1, copilot: 1, api: 0 },
+  { k: 'user-invocable',          claude: 1, copilot: 1, api: 0 },
+  { k: 'disable-model-invocation',claude: 1, copilot: 1, api: 0 },
+  { k: 'when_to_use',             claude: 1, copilot: 0, api: 0 },
+  { k: 'model',                   claude: 1, copilot: 1, api: 0 },
+  { k: 'effort',                  claude: 1, copilot: 0, api: 0 },
+  { k: 'hooks',                   claude: 1, copilot: 0, api: 0 },
+  { k: 'paths',                   claude: 1, copilot: 0, api: 0 },
+  { k: 'context',                 claude: 1, copilot: 1, api: 0 },
+  { k: 'agent',                   claude: 1, copilot: 0, api: 0 },
+  { k: 'background',              claude: 1, copilot: 0, api: 0 },
+  { k: 'shell',                   claude: 1, copilot: 0, api: 0 },
+  { k: 'disallowedTools',         claude: 1, copilot: 0, api: 0 }
+];
+const boxes = [...document.querySelectorAll('.tgt')];
+const keysEl = document.getElementById('keys');
+const roEl = document.getElementById('ro');
+const fmEl = document.getElementById('fm');
+
+function render() {
+  const on = boxes.filter(b => b.checked).map(b => b.dataset.t);
+  let legal = 0;
+  keysEl.innerHTML = '';
+  KEYS.forEach(row => {
+    const ok = on.length === 0 ? false : on.every(t => row[t] === 1);
+    const valueUnsafe = ok && row.valueSplit && on.includes('claude') && on.includes('copilot');
+    if (ok && !valueUnsafe) legal++;
+    const el = document.createElement('span');
+    el.className = 'chip';
+    el.textContent = row.k;
+    if (valueUnsafe) {
+      el.style.borderColor = '#D97757';
+      el.style.background = 'rgba(217,119,87,.14)';
+      el.title = 'Key is portable, value grammar is not';
+      el.textContent = row.k + '  ⚠';
+    } else if (ok) {
+      el.style.borderColor = '#788C5D';
+      el.style.background = 'rgba(120,140,93,.16)';
+      el.style.color = '#141413';
+    } else {
+      el.style.opacity = '.4';
+      el.style.textDecoration = 'line-through';
+    }
+    keysEl.appendChild(el);
+  });
+  const names = { claude: 'Claude Code', copilot: 'Copilot', api: 'Skills API' };
+  roEl.textContent = on.length
+    ? legal + ' of ' + KEYS.length + ' keys legal (' + Math.round(legal / KEYS.length * 100) + '%) across ' + on.map(t => names[t]).join(' + ')
+    : 'Select at least one target.';
+  const ship = KEYS.filter(r => on.length && on.every(t => r[t] === 1) && !(r.valueSplit && on.includes('claude') && on.includes('copilot')));
+  fmEl.innerHTML = ship.length
+    ? '---\n' + ship.map(r => '<span class="fn">' + r.k + '</span>: <span class="str">' + sample(r.k) + '</span>').join('\n') + '\n---'
+    : '<span class="cm"># no legal frontmatter for this target set</span>';
+}
+function sample(k) {
+  return { name: 'devcontainers', description: 'Audit, author and debug devcontainer.json…',
+           license: 'MIT', metadata: '{ corpus_version: "0.1.0" }', compatibility: '">=1.0"',
+           'argument-hint': '[audit|author|debug]', 'user-invocable': 'true',
+           'disable-model-invocation': 'false', 'allowed-tools': 'Bash(node:*)',
+           model: 'inherit', context: 'fork' }[k] || '…';
+}
+boxes.forEach(b => b.addEventListener('change', render));
+render();
+
+document.getElementById('copy').addEventListener('click', e => {
+  const t = fmEl.textContent, btn = e.currentTarget, old = btn.textContent;
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject())
+    .catch(() => { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); })
+    .then(() => { btn.textContent = 'Copied ✓'; btn.classList.add('ok'); setTimeout(() => { btn.textContent = old; btn.classList.remove('ok'); }, 1200); });
+});
+
+// ---- the twelve rules ----
+const RULES = [
+  ['DC-LIFE-001','ERROR','SPEC','Expensive work in postCreateCommand is never baked into a Codespaces prebuild','onCreateCommand and updateContentCommand are baked into the prebuild snapshot; postCreateCommand is not. --prebuild stops after updateContentCommand and re-runs it. Move dependency installs up.'],
+  ['DC-SEC-001','ERROR','SPEC','remoteEnv from devcontainer.json is written into the image metadata label by default','Anything in remoteEnv/containerEnv ships in the image. Real secrets belong in --secrets-file, which merges into the lifecycle environment and is redacted from logs. A hidden --omit-config-remote-env-from-metadata exists but is not the fix.'],
+  ['DC-LIFE-002','ERROR','SPEC','postAttachCommand is not a legal waitFor value','The waitFor enum is exactly [initializeCommand, onCreateCommand, updateContentCommand, postCreateCommand, postStartCommand], default updateContentCommand.'],
+  ['DC-FEAT-001','WARN','SPEC','overrideFeatureInstallOrder cannot reorder a dependsOn edge','Install order is a round-based topological sort over dependsOn (hard, recursive) and installsAfter (soft, non-recursive). overrideFeatureInstallOrder only assigns roundPriority and can never violate the graph.'],
+  ['DC-FEAT-002','WARN','SPEC','Feature dependency resolution happens only at initial creation','Rebuilds from an image and resumes do not recompute the tree — resolved dependencies are frozen into the devcontainer.metadata label. Also: two Features with different options are different Features and both install, so Features must be idempotent.'],
+  ['DC-PERF-001','WARN','SPEC','A named volume for a hot directory comes up root-owned','The sanctioned macOS/Windows bind-mount fix is a named volume (or moving the workspace into one via workspaceMount + workspaceFolder) — and it needs an explicit chown in postCreateCommand or the container user cannot write to it.'],
+  ['DC-USER-001','WARN','SPEC','updateRemoteUserUID silently builds a second derived image','Defaults to true on Linux whenever containerUser or remoteUser is set, producing a "…-uid" image before container creation. The CI Action exposes skipContainerUserIdUpdate.'],
+  ['DC-ENV-001','WARN','SPEC','userEnvProbe is why a command works in your terminal but not in postCreateCommand','Enum none|loginShell|loginInteractiveShell|interactiveShell, default loginInteractiveShell. It determines which shell startup files contribute to the lifecycle environment.'],
+  ['DC-LIFE-003','INFO','SPEC','Lifecycle commands accept an object form whose entries run in parallel','postCreateCommand is string | array | object. The object form runs each named entry concurrently — which changes what "expensive" means and breaks naive single-string heuristics.'],
+  ['DC-FEAT-003','WARN','SPEC','Feature install scripts run as root; _REMOTE_USER is the only way to know the eventual user','install.sh runs as root at build time with _REMOTE_USER, _CONTAINER_USER, _REMOTE_USER_HOME and _CONTAINER_USER_HOME set. Ignoring them is the leading cause of root-owned files inside a Feature.'],
+  ['DC-DEP-001','WARN','SPEC','Top-level extensions, settings and devPort are deprecated','Use customizations.vscode.{extensions,settings,devPort}. customizations.vscode also now carries an mcp key. appPort is likewise superseded by forwardPorts.'],
+  ['DC-CLAUDE-001','WARN','OPINION','Claude Code in a devcontainer needs a non-root remoteUser and a two-part auth mount','--dangerously-skip-permissions is rejected when the CLI runs as root. Persisting auth needs a volume at ~/.claude AND CLAUDE_CONFIG_DIR set, because ~/.claude.json lives outside ~/.claude. The reference firewall additionally needs NET_ADMIN and NET_RAW via runArgs.']
+];
+const rulesEl = document.getElementById('rules');
+RULES.forEach(([id, sev, tier, title, body]) => {
+  const d = document.createElement('details');
+  const sevCls = sev === 'ERROR' ? 'warn' : sev === 'WARN' ? 'neutral' : 'good';
+  d.innerHTML = '<summary><span class="badge ' + sevCls + '">' + sev + '</span>' +
+    '<span style="font-family:var(--mono);font-size:12px;color:var(--gray-500)">' + id + '</span>' +
+    '<span style="flex:1">' + title + '</span>' +
+    '<span class="ref">' + tier + '</span></summary>' +
+    '<div class="body">' + body + '</div>';
+  rulesEl.appendChild(d);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Provenance marker for upstream/awesome-copilot-devcontainers.instructions.md
+#
+# NOT SHIPPED. This file stays in this repository and must never be copied into
+# github/awesome-copilot alongside the payload. Our bookkeeping has no business
+# travelling into a third party's repo (ruling: progress.md:1211-1217), which is
+# why the payload itself carries no version string.
+#
+# The payload is a prose projection of the twelve rules in
+# .claude/skills/devcontainers/references/rules.md. A projection is only correct
+# for the corpus it was generated from. When rules.md moves, this marker and the
+# payload must move with it.
+#
+# Harness assertion (specified, not yet built - README.md:433-436):
+#   corpus_version here  ==  corpus_version in
+#   .claude/skills/devcontainers/references/rules.md
+# On mismatch, fail loudly: the projection is stale, not merely old.
+#   grep '^corpus_version:' upstream/.generated-from
+#   grep '^corpus_version:' .claude/skills/devcontainers/references/rules.md
+
+corpus_version: 0.3.0
+generated: 2026-09-01
+source: .claude/skills/devcontainers/references/rules.md
+payload: upstream/awesome-copilot-devcontainers.instructions.md
+target: github/awesome-copilot -> instructions/devcontainers.instructions.md
+pr_status: not opened - owner authorisation withheld
