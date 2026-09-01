@@ -11,12 +11,15 @@
 #   3. version          SKILL.md's corpus_version mirror equals rules.md's declaration
 #   4. upstream         upstream/.generated-from was generated from the current corpus
 #   5. citations        every DC- id cited inside the package resolves to a rule heading
+#   6. label list       the not-label-storable list is thirteen items in both files and identical
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILL_DIR="$ROOT/.claude/skills/devcontainers"
 SKILL="$SKILL_DIR/SKILL.md"
 RULES="$SKILL_DIR/references/rules.md"
+SPEC_FACTS="$SKILL_DIR/references/spec-facts.md"
+LABEL_LIST_SIZE=13   # spec-facts.md §4 argues the number; this pins it
 UPSTREAM_MARKER="$ROOT/upstream/.generated-from"
 RULE_FIELDS=(Severity Tier Source Quote Verified Detect Fix)
 
@@ -74,6 +77,21 @@ if [ -z "$dangling" ]; then
   ok "citations: every cited id is defined"
 else
   fail "citations: cited but not defined in rules.md: $(echo "$dangling" | tr '\n' ' ')"
+fi
+
+# --- 6. label-list agreement -------------------------------------------------
+# The not-label-storable list is deliberately duplicated: AUDIT reads it from
+# SKILL.md and never loads spec-facts.md. Both copies are prose lists ending in
+# a period. Extract, sort, compare.
+skill_list=$(sed -n '/Not label-storable:/,/`\.$/p' "$SKILL" | sed 's/.*Not label-storable://' | grep -oE '`[^`]+`' | sort)
+facts_list=$(sed -n '/^`name`, `initializeCommand`/,/`\.$/p' "$SPEC_FACTS" | grep -oE '`[^`]+`' | sort)
+skill_n=$(printf '%s\n' "$skill_list" | grep -c .)
+if [ "$skill_n" -ne "$LABEL_LIST_SIZE" ]; then
+  fail "label list: SKILL.md copy has $skill_n items, expected $LABEL_LIST_SIZE"
+elif [ "$skill_list" != "$facts_list" ]; then
+  fail "label list: SKILL.md and spec-facts.md copies differ: $(comm -3 <(printf '%s\n' "$skill_list") <(printf '%s\n' "$facts_list") | tr -s '\t\n' ' ')"
+else
+  ok "label list: $skill_n items, both copies agree"
 fi
 
 exit "$status"
