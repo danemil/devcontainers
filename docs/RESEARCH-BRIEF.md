@@ -251,3 +251,35 @@ and Claude Code. It must be better than afonsograca's router skill and must not 
 `devcontainer features test`, or the Trail of Bits generator without a reason.
 Judge every proposal on Total Cost of Ownership: implementation cost, cognitive cost, operational cost,
 change cost. Premature complexity is the cardinal sin.
+
+---
+
+## ERRATA (post-verification corrections to the above)
+
+**2026-09-01 — §5, tool availability on this machine. The claim is wrong for one of five tools.**
+
+§5 states: "NONE of hadolint/trivy/dockle/docker scout/devcontainer CLI is installed on this
+machine -> anything that shells out MUST probe and degrade gracefully."
+
+Measured 2026-09-01, during Task 7:
+
+    hadolint      ABSENT      trivy   ABSENT      dockle  ABSENT      devcontainer  ABSENT
+    docker-scout  ABSENT (as a bare binary on PATH)
+    docker scout version  ->  exit 0, PRESENT
+
+`docker scout` is a **Docker CLI plugin**, not a standalone binary. `command -v docker-scout`
+reports absent while `docker scout` runs fine — which is almost certainly how the original claim
+was formed, and is exactly why a probe must test the SUBCOMMAND, not the binary name.
+
+Consequences:
+- The skill's probe design is **validated**, not invalidated: probing `docker scout` as a
+  subcommand is the correct form, and probing `command -v docker-scout` would produce a false
+  "not installed" on this very machine.
+- Four of five tools are genuinely absent, so the degrade-gracefully requirement stands unchanged.
+- **Any task that runs a live audit on this machine will emit one fewer "not checked" line than
+  the worked examples show.** A Gate D, Task 9 or Task 10 run that assumes zero scanners is wrong
+  here. Do not treat a `docker scout` result appearing in a live run as a bug.
+
+The original §5 text is left in place rather than rewritten: it is dated, adversarially
+fact-checked research, and silently editing it would destroy the provenance that makes the rest of
+it trustworthy. This erratum supersedes it on this one point.
