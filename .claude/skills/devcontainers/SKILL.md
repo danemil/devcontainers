@@ -3,7 +3,7 @@ name: devcontainers
 description: Use when creating, editing, reviewing, validating or debugging a devcontainer.json, .devcontainer/ directory or Dev Container Feature, or when a containerised dev environment behaves differently from the host, fails to build, or is slow to start. Covers the containers.dev specification, Features, lifecycle commands, Codespaces prebuilds, and the tools that support them. Does not cover Dev Container Template authoring.
 license: MIT
 metadata:
-  corpus_version: "0.1.0"
+  corpus_version: "0.2.0"
   spec_verified: "2026-08-31"
 ---
 
