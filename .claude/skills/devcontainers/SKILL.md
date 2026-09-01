@@ -141,9 +141,10 @@ If it cannot be read, say so and stop: an audit from memory is worse than no aud
 3. Note what you cannot see: the image metadata label, private Feature contents, the resolved
    install order without the CLI. These become "not checked", not assumptions.
 4. Run the tool probe; run only what is available and read-only.
-5. Walk the twelve rules in `references/rules.md` order. For each, first list the inputs its
-   `Detect` names and mark each one read or not read — **then** pick the bucket. A rule whose
-   inputs you never read cannot be "checked, no finding", however clean the config looks.
+5. Walk the twelve rules in `references/rules.md` order. For each, copy its `Inputs` line —
+   that line is the list — and mark every input on it read, naming where you read it, or not
+   read, **then** pick the bucket. A rule whose inputs you never read cannot be "checked, no
+   finding", however clean the config looks.
 6. Emit the report below.
 
 ### Report format
@@ -181,7 +182,7 @@ rule silently missing is the same failure as "not checked" reading as "passed".
 | Bucket | Use it only when |
 | --- | --- |
 | **finding** | the firing input is present in the file and wins the merge — what you found, you found |
-| **checked, no finding** | you actually read every input the `Detect` names, **and** every property it reads is label-immune or present in the file and winning |
+| **checked, no finding** | you actually read every input on the rule's `Inputs` line, **and** every property it reads is label-immune or present in the file and winning |
 | **not checked** | anything else — an input was unavailable, or the label could still supply what fires the rule |
 | **not applicable** | the rule's own `Detect` scopes it out of this config |
 
@@ -196,14 +197,21 @@ wins — but the label can still **add** what the file never showed: lifecycle c
 these rules' properties, not a law of the merge system; a few merge the other way.) Hence: **an
 audit can soundly report what it found, not that it is clean.**
 
-Working a row needs the `Detect`, the config, and whether each property it names is
-label-storable — the not-label-storable list under "My changes aren't taking effect" is the
-in-file source for that. A compound `Detect` is only as sound as its weakest conjunct.
+Working a row needs the rule's `Inputs` line — that is the list of what to read — the config,
+and whether each property it names is label-storable; the not-label-storable list under "My
+changes aren't taking effect" is the in-file source for that. A compound `Detect` is only as
+sound as its weakest conjunct.
 
 **Not applicable** needs the `Detect`'s own scope clause — a rule limited to configs installing a
 particular tool, applied to one that does not; a Feature-authoring rule, applied to a repo that
 authors none. Name the condition. If you cannot decide, it is **not checked**: not having looked
 is not the same as having looked and found nothing.
+
+Every "checked, no finding" entry in the tally is written as `DC-XXX-NNN  read: <input>
+(<where>), <input> (<where>) …`, naming **every** input on that rule's `Inputs` line; an entry
+that cannot name every one is **not checked**, and a clean bucket with a bare count is not a
+tally. Where an `Inputs` line names the image metadata label conditionally, "read" means the
+image was pulled and the label read.
 
 ### The not-checked block
 
