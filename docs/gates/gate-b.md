@@ -77,11 +77,13 @@ description's exact trigger phrase — Copilot's skill-selection is not brittle 
 wording in this small sample.
 
 Permissions: **no explicit `--allow-tool`/`--allow-all-tools` flag was required.** `-s`
-alone (`-p 'run the reference canary' -s`) succeeded non-interactively with exit 0 —
-reading a file inside the working directory is auto-approved under Copilot CLI's default
-manual permission mode (`defaultPermissionMode: "manual"` auto-approves read-only
-requests per `copilot help config`). This is worth recording since the brief expected an
-approval flag might be needed; in this probe it wasn't.
+alone (`-p 'run the reference canary' -s`) succeeded non-interactively with exit 0. That
+is the **observation**. The *explanation* — that reading a file inside the working
+directory is auto-approved under the CLI's default manual permission mode
+(`defaultPermissionMode: "manual"` auto-approves read-only requests) — is **read out of
+`copilot help config`, not observed**. Keep the two apart: what this gate establishes is
+"no approval flag was needed here", not "the CLI auto-approves working-directory reads".
+Worth recording either way, since the brief expected an approval flag might be needed.
 
 ### Claude Code — CONTROL — DISCOVERY: PASS, RESOLUTION: PASS
 
@@ -150,8 +152,27 @@ twelve cited rules can stay in `references/` rather than moving into the SKILL.m
 the ~380-line SKILL.md budget contraction and the spec-facts.md-to-URL-list demotion are
 **not triggered**.
 
-One residual risk before treating this as fully closed: the VS Code GUI arm is unverified
-by direct observation. It shares the same GitHub-documented skill-discovery family as the
+**RESIDUAL — the probe cannot distinguish skill-relative resolution from ordinary
+working-directory file reading.** The skill lived at `.claude/skills/probe-refs/` *inside
+the CLI's working directory*, so an agent that simply read a path under its own CWD
+produces an identical PASS to one that resolved `references/canary.md` relative to a skill
+root. For the design as planned — the skill checked into the repo, project-scoped — the two
+are operationally the same thing and the PASS is directly usable. For a **personally
+installed** copy (`~/.claude/skills`, `~/.copilot/skills` — i.e. what Gate A's installers
+actually produce) the reference file sits *outside* the workspace, and neither the
+resolution result nor the no-approval-flag result carries over. Gate A additionally
+observed that `copilot skill add`'s only copying form does not land `references/` on disk
+at all. Read "Level-3 progressive disclosure works from `.claude/skills/`" narrowly: it is
+established for a project-scoped skill in the working directory, and is untested for an
+installed copy.
+
+**RESIDUAL — surface scope.** This is a Copilot CLI result. It says nothing about Copilot
+*code review*, which was probed separately in `gate-c.md` / `gate-c-selection.md` and which
+was only ever exercised from `.github/skills/`. Whether code review reads `.claude/skills/`
+is untested on either gate.
+
+One further residual risk before treating this as fully closed: the VS Code GUI arm is
+unverified by direct observation. It shares the same GitHub-documented skill-discovery family as the
 CLI, so a PASS there is likely, but "likely" is not "observed" — a human should run the
 4-step VS Code check above before this gate is treated as unconditionally closed across
 all three surfaces. Recommend closing Gate E only after either that VS Code check runs,

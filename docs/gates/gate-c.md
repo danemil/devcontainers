@@ -1,10 +1,17 @@
 # Gate C — can GitHub Copilot code review shell out? (Task 4)
 
 Probed empirically in a throwaway GitHub repo (`danemil/probe-exec-gatec`, created
-private, PR opened, Copilot review requested and observed, then deleted per controller
-ruling) — kept out of `/Users/emildan/work/devcontainers` entirely so no probe branch,
-PR, or commit touched the real project remote. Local working tree was `/tmp/gate-c-probe`
-(`git init`'d, removed after the run).
+private, PR opened, Copilot review requested and observed) — kept out of
+`/Users/emildan/work/devcontainers` entirely so no probe branch, PR, or commit touched the
+real project remote. Local working tree was `/tmp/gate-c-probe` (`git init`'d, removed
+after the run). The remote probe repo could **not** be deleted by the agent that ran this
+gate; it was deleted later by the controller once the repository owner granted the
+`delete_repo` scope — see "Cleanup" at the end of this file.
+
+**Follow-up:** the SELECTION half of this gate was re-probed on 2026-09-01 after task
+review. See `gate-c-selection.md`. Read the two together — the follow-up changes what can
+be claimed about SELECTION and corrects this file's dismissal of the review footer. It
+changes nothing about EXECUTION.
 
 Environment: `gh` CLI authenticated as `danemil` (scopes `admin:org, gist, repo, user,
 workflow`); `copilot` CLI 1.0.81 on PATH (not used in this gate — the surface under test
@@ -144,25 +151,68 @@ or configure MCP servers for context-aware, tailored reviews.
 
 ## SELECTION vs EXECUTION
 
-- **SELECTION: PASS.** The literal string `EXEC UNAVAILABLE` appears in the review body,
-  embedded in the "Pull request overview" section. That exact string exists nowhere in
-  this gate's setup except inside `probe-exec/SKILL.md`'s own fallback instruction ("If
-  you are unable to run commands on this surface, say exactly: `EXEC UNAVAILABLE`."). Its
-  presence in the review is direct evidence the skill was found, read, and its
-  instructions were followed at least partially — Copilot code review *did* select and
-  parse `probe-exec` from `.github/skills/`.
-- **EXECUTION: FAIL.** Copilot did not run `echo "EXEC-OK-4412"` and report the marker.
-  It instead executed the skill's own documented fallback branch and reported "EXEC
-  UNAVAILABLE" verbatim. This is outcome (b) from the task brief, not outcome (a): the
-  review ran, the skill was read, and the skill itself is the one reporting it cannot
-  execute — this is a real, observed finding, not an absence of data.
+- **SELECTION: PASS, with a named residual on the channel.** The literal string
+  `EXEC UNAVAILABLE` appears in the review body, embedded in the "Pull request overview"
+  section. That exact string exists nowhere in this gate's setup except inside
+  `probe-exec/SKILL.md`'s own fallback instruction ("If you are unable to run commands on
+  this surface, say exactly: `EXEC UNAVAILABLE`."). The PR diff touched only
+  `exec-canary.txt` and the review's own metadata says "Files reviewed: 1/1 changed
+  files", so the SKILL.md's content reached the reviewer from **outside the diff** and
+  shaped its output. That much is directly observed and rules out the "never saw it"
+  branch.
 
-One more data point worth flagging: the review's own footer nudges toward
-`.github/skills/code-review/SKILL.md` specifically (a suggested filename/path, via the
-"Add a `code-review` agent skill" link) — this looks like a generic UI affordance shown
-on every review regardless of whether a skill fired, not evidence that our skill was
-ignored (it manifestly was not, given `EXEC UNAVAILABLE` came from it). Not investigated
-further since it doesn't change the verdict.
+  What this single observation did **not** settle on its own is *by which channel* it
+  arrived — agent-skill selection, or ordinary out-of-diff repo-context reading — and
+  whether loading is pinned to a skill named `code-review` at the path the review's own
+  footer advertises. The follow-up probe in `gate-c-selection.md` closes the second
+  question and narrows the first:
+  - An **arbitrarily-named** skill (`quokka-audit`) committed as repo state, never part of
+    a PR diff, had its instruction obeyed and its marker `MARKER-QUOKKA-8801` emitted in
+    the review. Loading is **not** pinned to the `code-review` name or path.
+  - A **negative control** shows the reviewer does not echo marker-shaped strings out of
+    changed files: `CONTROL-NO-SKILL-8803` was literally in a reviewed diff and did not
+    appear in the review. So "the model merely parroted a string it was shown" is a weak
+    deflation of the `EXEC UNAVAILABLE` observation.
+  - **Still open:** whether the load is description-matched skill selection or whole-file
+    repo-context ingestion (the follow-up's two skills carried identical generic
+    descriptions, so it cannot discriminate); and whether the reviewer reads the PR head
+    branch or the default-branch tip.
+
+  Read narrowly and safely: *a `SKILL.md` under `.github/skills/` reaches Copilot code
+  review from outside the diff and its directives are followed, under an arbitrary name.*
+  Whether GitHub's agent-skills subsystem is the mechanism is not pinned down.
+- **EXECUTION: FAIL.** The marker `EXEC-OK-4412` never appeared. What appeared instead is
+  the skill's own documented fallback string, "EXEC UNAVAILABLE", verbatim. Keep the
+  epistemics straight: **what was observed is a string appearing, not a command being
+  attempted and failing** — that string is the SKILL.md author's prose. Do not write
+  "Copilot code review attempted execution and failed." This is outcome (b) from the task
+  brief, not outcome (a): the review ran, the skill's content reached it, and the reported
+  inability to execute is the skill's own words being reproduced. It is a real, observed
+  FAIL of the marker, not an absence of data.
+
+### The footer — investigated, and it is NOT a generic affordance
+
+The review's own footer nudges toward `.github/skills/code-review/SKILL.md` specifically
+(a pre-filled create-file link, via the "Add a `code-review` agent skill" text). This file
+originally called that "a generic UI affordance shown on every review regardless of
+whether a skill fired … Not investigated further". **That was a hypothesis stated as a
+fact, and it is now empirically wrong.** The follow-up probe (`gate-c-selection.md`)
+observed the link present on one review and absent on two others in the same repo on the
+same day, while the MCP half of the same footer sentence appeared on all three. The footer
+is conditional; it varies with repo state.
+
+What it is conditional *on* is unresolved. Two readings both fit every observation:
+(a) the link is suppressed once `.github/skills/code-review/SKILL.md` exists — the
+parsimonious reading, since it is a file-*creation* link pre-filled to exactly that path;
+or (b) the link signals that no skill was loaded for that review.
+
+Consequence for this gate: under (a) the footer says nothing about this gate's SELECTION
+verdict, and its appearance here is fully expected (this probe repo had no
+`code-review`-named skill). Under (b) it would read as "no skill was loaded", which would
+put this gate's SELECTION back in doubt. The follow-up cannot exclude (b), so it is
+recorded as the one live branch under which SELECTION here would fail. The independent Q1
+result above — an arbitrarily-named skill demonstrably loaded and obeyed — is what carries
+the weight, not the footer.
 
 ## How long this took
 
@@ -181,7 +231,10 @@ runtime configured) execute shell commands the skill instructs it to run. It beh
 exactly as directed by the skill's own written fallback, which is the SKILL.md author's
 prose, not observed execution.
 
-Per the brief's Step 4 fallback text, quoted verbatim:
+Per the brief's Step 4 fallback text, with one deliberate substitution — "tamper-evident
+header" is rendered as "provenance header", per the plan's own change table ("The
+'tamper-evident header' is not tamper-evident → Renamed to provenance header"). Not
+verbatim; corrected:
 
 > Copilot code review cannot execute -> diff-line findings come only from the Phase 2
 > SARIF upload, not from the skill. The skill on that surface is prose-only, and the
@@ -206,10 +259,17 @@ servers configured, as the review's own footer nudges toward, is untested and ou
 scope for this gate) — only that the plain, most-documented `.github/skills/` path,
 unassisted, does not.
 
-## Outstanding cleanup (needs a human)
+**Second caveat, on directory:** this gate ran entirely from `.github/skills/`, and so did
+the follow-up selection probe. The project ships its skill to `.claude/skills/`. **Whether
+Copilot _code review_ reads `.claude/skills/` at all is UNTESTED.** Gate B's PASS for
+`.claude/skills/` is on the **Copilot CLI**, a different surface with its own documented
+discovery list; it does not transfer here. Do not read "Gate B PASS + Gate C SELECTION
+PASS" as "our `.claude/skills/` skill is seen by code review".
 
-The probe repo `danemil/probe-exec-gatec` (private, contains only the inert marker
-strings shown above — no user data) could **not** be deleted by this agent:
+## Cleanup — COMPLETE
+
+The probe repo `danemil/probe-exec-gatec` (private, contained only the inert marker strings
+shown above — no user data) could not be deleted by the agent that ran this gate:
 
 ```
 $ gh repo delete danemil/probe-exec-gatec --yes
@@ -218,13 +278,9 @@ This API operation needs the "delete_repo" scope. To request it, run:
   gh auth refresh -h github.com -s delete_repo
 ```
 
-Requesting that scope requires an interactive device-flow browser authorization
-(`gh auth refresh -h github.com -s delete_repo` prints a one-time code and a
-`https://github.com/login/device` URL and blocks waiting for a human to approve it in a
-browser). This agent started that flow to confirm the shape of the blocker, then
-deliberately killed it rather than push an account-scope elevation through
-unsupervised — that is a step only `danemil` should approve interactively. **Action
-needed:** either run `gh auth refresh -h github.com -s delete_repo` and then
-`gh repo delete danemil/probe-exec-gatec --yes`, or delete the repo manually from
-https://github.com/danemil/probe-exec-gatec/settings. The local working tree
-`/tmp/gate-c-probe` was already removed.
+Requesting that scope requires an interactive device-flow browser authorization, which the
+gate agent correctly declined to push through unsupervised. **This has since been done.**
+The repository owner granted the `delete_repo` scope, and the controller deleted
+`danemil/probe-skill-gatea`, `danemil/probe-exec-gatec` and `danemil/probe-select-gatec`.
+No repository matching "probe" remains on the account. The local working tree
+`/tmp/gate-c-probe` had already been removed. **No cleanup action is outstanding.**

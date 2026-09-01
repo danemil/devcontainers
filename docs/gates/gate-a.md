@@ -18,7 +18,7 @@ source.
 |---|---|
 | `npx skills add <you>/probe-skill` | Correct as guessed: `npx skills add danemil/probe-skill-gatea -g -a claude-code -y` |
 | `gh skill install <you>/probe-skill` | Needs an explicit skill name to actually install (bare repo just lists matches non-interactively): `gh skill install danemil/probe-skill-gatea probe-devc --agent claude-code --scope user` |
-| `copilot skill add <you>/probe-skill` | **Does not exist.** `copilot skill add` takes only a local file, local directory, or an HTTPS URL to a single `SKILL.md` — there is no GitHub-repo-ref form at all. Tested both real forms: `copilot skill add /path/to/skills/probe-devc` (directory) and `copilot skill add /path/to/skills/probe-devc/SKILL.md` (file). |
+| `copilot skill add <you>/probe-skill` | **Does not exist.** `copilot skill add` takes only a local file, local directory, or an HTTPS URL to a single `SKILL.md` — there is no GitHub-repo-ref form at all. **Two of the three documented source forms were run:** `copilot skill add /path/to/skills/probe-devc` (directory) and `copilot skill add /path/to/skills/probe-devc/SKILL.md` (file). The third form — an HTTPS URL to a single `SKILL.md` — was **not run**; its single-file scope is taken from `--help`, not observed. |
 
 ## Results per installer
 
@@ -26,7 +26,12 @@ source.
 
 - (a) `references/deep.md` exists: **PASS** — content intact (`MARKER-DEEP-FILE-SURVIVED`)
 - (b) `bin/probe.mjs` exists: **PASS**
-- (c) executable bit preserved: **PASS** — `-rwxr-xr-x`, `node bin/probe.mjs` and direct exec both ran
+- (c) executable bit preserved: **PASS** — `-rwxr-xr-x` observed via `find -exec ls -l`, and
+  `node bin/probe.mjs` ran and printed `MARKER-EXEC`. Correction to an earlier wording of this
+  line: **direct exec (`./bin/probe.mjs`) was not separately run for this installer** — no such
+  invocation appears in `task-2-report.md`. The mode bits are sufficient evidence for "the
+  executable bit is preserved"; the "direct exec also ran" half was an unbacked claim and is
+  withdrawn. (The FAIL case below *does* have its direct-exec attempt on record.)
 - (d) frontmatter injection: **PASS (none)** — `diff` against source `SKILL.md` was byte-identical
 
 ### `gh skill install` — target: `~/.claude/skills/probe-devc` (`--agent claude-code --scope user`)
@@ -61,7 +66,7 @@ source.
   Four keys added under one nested `metadata:` frontmatter key (not four top-level keys), plus key
   reordering (`name` moved after `metadata`).
 
-### `copilot skill add` — no repo-ref install path exists; both real forms tested
+### `copilot skill add` — no repo-ref install path exists; two of three documented forms tested
 
 **Form 1 — directory source** (`copilot skill add <local-clone>/skills/probe-devc`): this is a
 **pointer registration**, not a copy. It writes the literal path into
@@ -99,9 +104,11 @@ top-level key (`metadata:`, itself holding 4 sub-keys) that the source file neve
 
 `copilot skill add` has **no GitHub-repo-ref install path at all** — the brief's assumed command
 (`copilot skill add <you>/probe-skill`) does not exist and never will resolve a `owner/repo`
-argument; that argument type simply isn't accepted. The only two real forms are (1) register an
+argument; that argument type simply isn't accepted. The two forms actually run were (1) register an
 already-local directory by path (no copy, so fidelity is moot — nothing is materialized from the
-repo), or (2) copy a single `SKILL.md` file, which **drops `references/` and `bin/` entirely**.
+repo), and (2) copy a single `SKILL.md` file, which **drops `references/` and `bin/` entirely**.
+The third documented form — an HTTPS URL to a single `SKILL.md` — was not run; per `--help` it is
+single-file by construction and so cannot carry a subtree, but that is help text, not observation.
 Consequence: for a project that wants "install my SKILL.md by pointing Copilot at my GitHub repo,"
 there is currently no such installer on this CLI — depth must either live entirely inside one
 `SKILL.md` file, or the project must document "clone the repo, then `copilot skill add
@@ -125,23 +132,27 @@ installed copy rather than the source file.
   none required making it public — both `npx skills add` and `gh skill install` reached it fine
   via the authenticated `gh`/git credential helper, so the private-repo fallback-to-public
   contingency in the task's controller ruling was not needed.
-- **Cleanup gap:** the probe GitHub repo could not be deleted — `gh repo delete
-  danemil/probe-skill-gatea --yes` returned `HTTP 403: Must have admin rights to Repository ...
-  needs the "delete_repo" scope`. The authenticated token's scopes (admin:org, gist, repo, user,
-  workflow) do not include `delete_repo`. Widening the token's scope was out of scope for this
-  gate (a deliberate account-level auth change, not a probe action), so it was not done
-  unilaterally. **`danemil/probe-skill-gatea` still exists on GitHub, private, containing only the
-  inert marker files described above** — needs manual deletion (`gh auth refresh -h github.com -s
-  delete_repo` then `gh repo delete danemil/probe-skill-gatea --yes`, or delete via the GitHub UI).
+- **Cleanup gap — since CLOSED.** At the time this gate ran, the probe GitHub repo could not be
+  deleted — `gh repo delete danemil/probe-skill-gatea --yes` returned `HTTP 403: Must have admin
+  rights to Repository ... needs the "delete_repo" scope`. The authenticated token's scopes
+  (admin:org, gist, repo, user, workflow) did not include `delete_repo`, and widening the token's
+  scope was correctly treated as an account-level change outside this gate's remit. **This has
+  since been resolved:** the repository owner granted `delete_repo` and the controller deleted
+  `danemil/probe-skill-gatea` (along with the Gate C probe repos). No repository matching "probe"
+  remains on the account. No cleanup action is outstanding.
 - All local probe artifacts were fully cleaned up: `~/.claude/skills/probe-devc`,
   `~/.agents/skills/probe-devc` (never actually populated — see npx result below),
   `~/.copilot/skills/probe-devc`, and the `skillDirectories` registration in
   `~/.copilot/settings.json` were all removed and verified absent by a final sweep. No
   pre-existing skill directory was touched.
-- One incidental finding: `npx skills add ... -a claude-code` printed an install-summary line
-  claiming a copy to `~/.agents/skills/probe-devc`, but the file actually landed only in
-  `~/.claude/skills/probe-devc` — `~/.agents/skills/probe-devc` was never created. Not required by
-  this gate's question, noted for awareness only.
+- **Load-bearing incidental finding** (originally filed here as "awareness only"; that label
+  under-rated it and is withdrawn): `npx skills add ... -a claude-code` printed an install-summary
+  line claiming a copy to `~/.agents/skills/probe-devc`, but the file actually landed only in
+  `~/.claude/skills/probe-devc` — `~/.agents/skills/probe-devc` was never created. It matters
+  because Gate B's quoted discovery list makes `~/.agents/skills/` a **Copilot personal skills
+  source**: an installer that reports writing there and does not is exactly the failure mode that
+  would break a "one install serves both hosts" story. Observed once, on this installer, with this
+  `-a claude-code` flag; not re-run.
 
 ## Addendum — does Copilot accept an author-written metadata: block?
 
@@ -243,11 +254,22 @@ plain-canary's behavior byte-for-byte apart from the marker itself. The one stde
 anywhere in this probe is unrelated (a different, pre-existing skill's naming violation), not a
 metadata complaint, and is quoted above in full rather than summarized.
 
-**VERDICT: ACCEPTED**
+**VERDICT: ACCEPTED** — scoped as stated in the residual immediately below.
+
+**RESIDUAL — surfaces not tested.** This was observed on **Copilot CLI 1.0.82 only, for a
+project-scoped skill in `.claude/skills/`**. Untested, and therefore not covered by this verdict:
+`.github/skills/`, VS Code Copilot Chat, Copilot code review, and — most importantly — **the
+Skills API path, where the plan states that any frontmatter key outside the portable set is a
+hard error.** That is the surface with the strictest validator and it is the one never probed.
+The supported claim is *"`metadata` is accepted by Copilot CLI 1.0.82 in project scope, with no
+warning on any stream"*, not *"`metadata` is accepted by Copilot"*. Note also that
+`copilot skill list --json` echoes back neither `metadata` nor `license`, so its absence from that
+view is a property of the view and is not evidence either way.
 
 **Consequence for the project:** the shipped frontmatter stays four keys (`name`, `description`,
 `license`, `metadata`). No fallback to moving `corpus_version` into the body as a plain line is
-needed.
+needed. This decision rests on Copilot CLI project-scope evidence only; if the Skills API path
+becomes a shipping target, re-test before relying on it.
 
 **Cleanup.** `/tmp/gate-a-metadata` was a throwaway git repo, deleted after this probe. No skill
 was ever installed via `copilot skill add`, so `~/.copilot/skills` was never touched by this probe
