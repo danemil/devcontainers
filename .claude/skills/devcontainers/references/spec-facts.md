@@ -313,17 +313,25 @@ follows the max rule. [image-metadata], [base-schema], [gpu-proposal]
 
 ### What the label can carry
 
-**Take this from the merge table, not from the source's prose sentence.** The image-metadata
-document opens with a prose list — "Current dev container config that can be recorded in the
-image: …" — that is a *stale snapshot*, and the document says so itself two sections later:
-"We are adding support for `mounts`, `containerEnv`, `containerUser`, `init`, `privileged`,
-`capAdd`, and `securityOpt` to the devcontainer.json." The merge table is the current
-statement; its own header says it "notes which properties are currently supported coming from
-the devcontainer.json and which from the feature metadata". Six properties are marked in the
-table's devcontainer.json column but missing from the prose sentence, so a reader who takes the
-prose list will under-count. [image-metadata]
+**The basis for both lists in this section is the per-property marker in the
+devcontainer.json reference**, whose legend reads: "Metadata properties marked with a 🏷️ can
+be stored in the `devcontainer.metadata` **container image label** in addition to
+`devcontainer.json`." That is a *positive* marker attached to each property in turn, which
+makes it a stronger basis than the merge table: the merge table describes how values **combine**
+once they are on the label, not what the label **records**. Where this section cites
+[image-metadata] it is for merge logic; where it states what is or is not carried, the
+authority is [json-ref]. Extracted 2026-09-01, the reference carries 50 property rows — 31
+marked, 19 unmarked across 18 distinct properties.
 
-Carried **from `devcontainer.json`** (every row marked in that column of the merge table):
+Do **not** take the can-carry list from the image-metadata document's opening prose sentence
+("Current dev container config that can be recorded in the image: …"). That sentence is a
+stale snapshot, and the document supersedes it two sections later: "We are adding support for
+`mounts`, `containerEnv`, `containerUser`, `init`, `privileged`, `capAdd`, and `securityOpt` to
+the devcontainer.json." A reader who takes the prose sentence under-counts by six.
+[json-ref], [image-metadata]
+
+Carried **from `devcontainer.json`** (marked in the reference; corroborated by the merge
+table's devcontainer.json column):
 `init`, `privileged`, `capAdd`, `securityOpt`, `mounts`, `onCreateCommand`,
 `updateContentCommand`, `postCreateCommand`, `postStartCommand`, `postAttachCommand`,
 **`waitFor`**, `customizations`, **`containerUser`**, `remoteUser`, `userEnvProbe`, `remoteEnv`,
@@ -333,27 +341,41 @@ Carried **from `devcontainer.json`** (every row marked in that column of the mer
 Carried **from Feature metadata**: `mounts`, `init`, `privileged`, `capAdd`, `securityOpt`,
 `entrypoint`, `customizations`, and `id` (recorded, never merged). [image-metadata]
 
-`waitFor` and `containerUser` are bolded because they are the two the prose sentence omits and
-the table carries — `containerUser` twice over, since the "Additional devcontainer.json
-Properties" section names it explicitly. Both **are** label-storable. Do not conclude otherwise
-from the prose list.
+`waitFor` and `containerUser` are bolded because they are the two the stale prose sentence
+omits. Both carry the 🏷️ marker in the reference, both are marked in the merge table, and
+`containerUser` is named a third time in the "Additional devcontainer.json Properties" section.
+Both **are** label-storable. Do not conclude otherwise from the prose sentence.
 
 ### What the label never carries
 
-**This list is not a complement, and must never be derived as one.** The two lists below do not
-partition the schema: a property absent from both is a property the image-metadata document is
-simply *silent* about, and silence is not immunity. `name` and `secrets`, for instance, appear
-nowhere in that document at all — `secrets` postdates it — so nothing here supports a claim
-either way about them.
+**This list is not a complement, and must never be derived as one.** Because the marker is
+positive and per-property, the reference supports **three** states, not two:
 
-The list is enumerated, directly attested, and its **canonical copy lives in `SKILL.md`**, under
-"My changes aren't taking effect"; this is the same list reproduced for AUTHOR and DEBUG
-readers, and it is not a second authority — if the two ever disagree, `SKILL.md` is the one
-other modes read and the divergence is a defect to fix there.
+| What the reference shows | What it means |
+|---|---|
+| A row carrying 🏷️ | **storable** — attested |
+| A row with **no** marker | **not storable** — attested, and this is the list below |
+| **No row at all** | the source is **silent** — and silence is not immunity |
 
-`initializeCommand`, `image`, `build.*`, `dockerComposeFile`, `service`, `runServices`,
+The third state is the one that gets misread. `secrets`, `extensions`, `settings` and `devPort`
+have **zero occurrences anywhere in the reference** — `secrets` postdates the page, the other
+three are deprecated in favour of `customizations.vscode.*` (`DC-DEP-001`). Nothing on that
+page supports a claim either way about them. Do not place them on either list, and do not treat
+their absence as immunity. [json-ref]
+
+The never-storable list is enumerated from unmarked rows, not derived, and its **canonical copy
+lives in `SKILL.md`**, under "My changes aren't taking effect"; the **thirteen** items below are
+that same list reproduced for AUTHOR and DEBUG readers, and it is not a second authority — if
+the two ever disagree, or if this copy is not thirteen items long, `SKILL.md` is the one other
+modes read and the divergence is a defect to fix there.
+
+`name`, `initializeCommand`, `image`, `build.*`, `dockerComposeFile`, `service`, `runServices`,
 `appPort`, `runArgs`, `workspaceMount`, `workspaceFolder`, `features`,
 `overrideFeatureInstallOrder`.
+
+Thirteen, not twelve: the 19 unmarked rows cover 18 distinct properties (`workspaceFolder`
+appears in two tables), and collapsing the six `build.*` entries to `build.*` leaves exactly
+thirteen. **`name` is attested, not silent** — it has an unmarked row of its own. [json-ref]
 
 What to DO, in three cases rather than two:
 

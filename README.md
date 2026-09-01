@@ -286,8 +286,18 @@ as a violation, on a corpus where every quote verified and every checker passed.
   legend states per property whether it is recorded in the image label — so the source has
   **three** states, not two: tagged, untagged row, and *no row at all*. **Silence is not
   immunity.** A property with no row is one the source does not speak to, and the audit must
-  read the merged configuration rather than infer. A harness that computes label-immunity by
-  absence across two lists will call unattested properties immune, which is how this was got
+  read the merged configuration rather than infer.
+  **The list is complete against `[json-ref]`, not merely open** — a question this project
+  carried unresolved for most of its life and has now closed by extracting every row: **50
+  property rows, 31 tagged, 19 untagged across 18 distinct properties, and collapsing the six
+  `build.*` rows gives exactly the thirteen entries the list carries.** So a harness may assert
+  set equality against the source rather than mere membership. Two corrections came with that
+  extraction, and both invert what this project believed: `appPort` is attested, while
+  `extensions`, `settings` and `devPort` have **zero occurrences anywhere in the reference** —
+  and `DC-FEAT-001` and `DC-FEAT-002`, the two rules that carried an explicit caveat, are the
+  fully attested ones.
+  A harness that computes label-immunity by absence across two lists will call unattested
+  properties immune, which is how this was got
   wrong in three files at once; `DC-DEP-001`, described throughout this project as the clean
   case, turns out to be attested for one input of four.
 - **The T02-shaped secret fixtures, run against any changed `Detect`.** `${localEnv:TOKEN}`
@@ -296,6 +306,10 @@ as a violation, on a corpus where every quote verified and every checker passed.
   `hunter2`. Round 1 of Gate E emitted `DC-SEC-001 [SPEC] ERROR` against the remedy itself.
 - **`SKILL.md` frontmatter `corpus_version` asserted equal to `rules.md`'s value** (grep 3
   above). They can drift and nothing else catches it.
+- **`upstream/.generated-from`'s `corpus_version` asserted equal to `rules.md`'s value.**
+  Specified here, not yet built. The sidecar exists so the projection's currency is a checkable
+  fact rather than a claim in prose; until the assertion is executed, that check is a human
+  running the two greps the sidecar itself prints.
 
 Any `Detect` edit re-runs half two. A `Detect` change that alters what the corpus emits for
 an unchanged configuration is a **minor** version bump even when the edit looks tiny.
@@ -465,11 +479,25 @@ and this section with it.
 `upstream/awesome-copilot-devcontainers.instructions.md` is a self-contained
 `.instructions.md` file carrying all twelve rules **in instruction form** — assertion, what to
 look for, the concrete fix, and a source link — with **no `DC-` rule IDs and no severity
-labels**. It projects corpus `0.2.0`, including both of that version's narrowed `Detect`
-fields, each under a bolded **Do not report** paragraph. **It is one minor version behind: the
-corpus is at `0.3.0` and this file has not been regenerated.** That is exactly the drift the
-section warns about below, caught here by a human rather than by a checker — because there is
-no checker.
+labels**. It carries the current corpus, including `DC-USER-001`'s opened ownership
+enumeration with its `git config --global --add safe.directory` exclusion, and the
+label-attestation rewrite.
+
+**Its currency is declared by `upstream/.generated-from`, and that sidecar is the authority —
+not this paragraph.** The payload itself carries no version string, deliberately: our
+bookkeeping has no business travelling into a third party's repository. The sidecar stays
+here, names the corpus version the projection was generated from, and specifies the assertion
+that checks it:
+
+```sh
+grep '^corpus_version:' upstream/.generated-from
+grep '^corpus_version:' .claude/skills/devcontainers/references/rules.md
+# they must match; on mismatch the projection is stale, not merely old
+```
+
+**Do not restate the version in prose here.** An earlier draft of this section did, and went
+stale within one commit while the sidecar's own assertion passed — two answers to one
+question, from the mechanism built to answer it. Read the sidecar.
 
 **It is a payload prepared for [`github/awesome-copilot`](https://github.com/github/awesome-copilot)
 and it has not been submitted.** No PR has been opened, so there is no outcome to record here.
@@ -544,19 +572,22 @@ corpus with no checker behind it — see the section above.
 Stated rather than left for a reader to infer from a version number that looks freshly
 validated:
 
-- **The corpus is at `0.3.0`. The last full Gate E evaluation ran against `0.2.0`.**
-- **That `0.2.0` evaluation was round 2, and it re-ran five of ten tasks** (T02, T03, T08b,
+- **The corpus is at `0.3.0`. The last *full ten-task* Gate E run was against `0.1.0`** —
+  round 1. No full-set evaluation has run against any later corpus.
+- **The only evaluation at `0.2.0` was round 2, and it re-ran five of ten tasks** (T02, T03, T08b,
   T11, T12). It genuinely evaluated both of the `0.1.0` → `0.2.0` narrowings — 20 runs,
   including two probes built specifically to catch a lost true positive, and none was lost.
   What has never run against a post-`0.1.0` corpus is **the other five tasks**.
 - **`0.2.0` → `0.3.0` has not been evaluated at all.** It opened `DC-USER-001`'s ownership
   enumeration and excluded one case from it — a `Detect` change that alters what fires in both
   directions, which is precisely the class the SAFE-TO-FOLLOW half exists for.
-- **`upstream/` still projects `0.2.0`** and owes a regeneration.
+- **`upstream/` is *not* part of this debt.** It was regenerated with the bump and
+  `upstream/.generated-from` declares the current corpus version — check the sidecar rather
+  than this sentence.
 
-**The obligation this adds up to: a full ten-task Gate E re-run at `0.3.0`, and an `upstream/`
-regeneration, before the upstream PR is opened.** Both are acknowledged debts, not completed
-work. This is the cascade a version bump triggers under the rule two paragraphs above; it was
+**The obligation this adds up to: a full ten-task Gate E re-run at `0.3.0`, before the
+upstream PR is opened.** That is an acknowledged debt, not completed work. This is the cascade
+a version bump triggers under the rule two paragraphs above; it was
 predicted, it was accepted as the price of a correct corpus edit, and reverting correct work to
 protect a version number would have been the wrong trade.
 
@@ -613,11 +644,11 @@ Stated so nobody is surprised by an absence:
   force-added past that rule on purpose, so the eight minutes of rate-limited code search
   survive a `git clean -fdx` and a resumer does not have to buy them again.
   **One thing a resumer should know, though it costs nothing:** `blobs.tsv` — the 4,165-row
-  list deduped by blob sha — is **derived, not stored.** It is not committed, and neither
-  `gate-d.md`'s resume recipe nor the file itself says where it comes from; `fetch.sh`'s first
-  working line is `awk -F'\t' '!seen[$3]++' hits.uniq.tsv > blobs.tsv`, which **regenerates it
-  from the committed hit list unconditionally on every run.** So a fresh clone needs nothing
-  extra and the recipe does not fail. A manual dedup on the blob-sha column is only needed if
+  list deduped by blob sha — is **derived, not stored.** It is not committed, but `fetch.sh`'s
+  first working line is `awk -F'\t' '!seen[$3]++' hits.uniq.tsv > blobs.tsv`, which
+  **regenerates it from the committed hit list unconditionally on every run**, and
+  `gate-d.md`'s resume recipe now quotes that line. So a fresh clone needs nothing extra and
+  the recipe does not fail. A manual dedup on the blob-sha column is only needed if
   someone drives the fetch some other way. Verified independently from the committed file:
   4,176 rows deduplicate to **4,165 unique blob shas across 4,064 repos**.
   `docs/gates/fp-corpus/` is genuinely absent — it is ignored, and it is empty anyway.
