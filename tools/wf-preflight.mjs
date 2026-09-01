@@ -20,6 +20,8 @@
 //
 // Exit 0 = clean, 1 = parse failure, 2 = usage.
 import fs from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import process from 'node:process';
 
 const EXIT = { CLEAN: 0, PARSE_FAILURE: 1, USAGE: 2 };
@@ -159,4 +161,7 @@ function main(argv) {
   return EXIT.CLEAN;
 }
 
-process.exit(main(process.argv));
+export { parseError, findMultilineTemplates };
+
+const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) process.exit(main(process.argv));
