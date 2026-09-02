@@ -1,0 +1,37 @@
+# The package invariants and the tooling's own tests. Everything here is
+# runnable locally with the same commands; CI only makes "all checks pass"
+# a fact rather than a claim.
+name: checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Package invariants
+        run: tools/check-skill.sh
+
+      - name: Shell syntax
+        run: |
+          for f in docs/gates/.harvest/harvest.sh docs/gates/.harvest/fetch.sh \
+                   .gemini/hooks/crg-session-start.sh .gemini/hooks/crg-update.sh \
+                   tools/check-skill.sh; do
+            bash -n "$f" || exit 1
+          done
+
+      - name: Node syntax
+        run: |
+          node --check tools/wf-preflight.mjs
+          node --check docs/gates/fp-measure.mjs
+
+      - name: Tool tests
+        run: node --test tools/wf-preflight.test.mjs docs/gates/fp-measure.test.mjs
