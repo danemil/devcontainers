@@ -84,8 +84,15 @@ actually controls; `README.md` carries the measurement.
   regenerate it from `rules.md` and bump `upstream/.generated-from` whenever the corpus changes.
 - **`.github/instructions/devcontainers.instructions.md` stays contentless.** It is a pointer
   whose mechanism is unproven; adding a rule, default, severity or example to it is a
-  review-blocking change. The same rule binds `.github/prompts/*.prompt.md` and
-  `.github/copilot-instructions.md`: they route to the skill and carry no rule content.
+  review-blocking change. The same rule binds `.github/prompts/*.prompt.md`,
+  `.github/copilot-instructions.md` and `.github/agents/*.agent.md`: they route to the skill
+  and carry no rule content.
+- **`.github/agents/devcontainer-audit.agent.md`'s `tools` list is the load-bearing line**, not
+  its prose. It is what makes AUDIT's "do not edit" enforced rather than promised, and it was
+  measured that way — see `docs/verification/2026-09-02-agents-prototype/`, whose control run
+  proves the enforcement is the tool list and not the body text. **Adding `bash`, `create` or
+  `edit` to it silently converts the guarantee back into a promise** and invalidates that
+  evidence. If you change the list, re-run all three tests.
 - **Two versions, not one.** `metadata.version` in `SKILL.md` is the package; `corpus_version`
   (authoritative in `rules.md`, mirrored in the frontmatter) is the rule corpus, and it bumps
   independently. A `Detect` edit that changes what the corpus emits for an unchanged config is a

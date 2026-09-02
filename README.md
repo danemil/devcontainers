@@ -18,9 +18,11 @@ generator, no build step and no per-host fork. The whole shipped product is one 
 .claude/skills/devcontainers -> ../../.github/skills/devcontainers    # symlink
 ```
 
-plus three Copilot-native routing surfaces that carry no rule content —
+plus four Copilot-native routing surfaces that carry no rule content —
 `.github/instructions/devcontainers.instructions.md` (a contentless pointer whose mechanism is
-**unproven** — see below), `.github/copilot-instructions.md`, and `.github/prompts/`.
+**unproven** — see below), `.github/copilot-instructions.md`, `.github/prompts/`, and
+`.github/agents/devcontainer-audit.agent.md`, a read-only audit agent which is the **one**
+routing surface here whose mechanism was measured.
 
 > **Using it?** Read **Install**, immediately below, and stop there.
 > **Auditing or maintaining it?** Everything from **The frontmatter contract** down is a
@@ -75,6 +77,7 @@ one of the things it leaves behind is worth fetching by hand.
 | --- | --- | --- |
 | `.github/skills/devcontainers/` | **yes** — `SKILL.md` and both `references/` files | the product |
 | `.github/prompts/*.prompt.md` | no | worth copying — see below |
+| `.github/agents/devcontainer-audit.agent.md` | no | Copilot-only; worth copying if you want enforced read-only audits |
 | `.github/copilot-instructions.md` | no | repo-level Copilot config |
 | `.github/instructions/devcontainers.instructions.md` | no | repo-level Copilot config |
 | `AGENTS.md` | no | **do not copy it** — see below |
@@ -1020,6 +1023,24 @@ Stated so nobody is surprised by an absence:
 - `upstream/awesome-copilot-devcontainers.instructions.md` — the unsubmitted
   `github/awesome-copilot` payload and the project's only sanctioned prose projection of the
   corpus; see the section above for why it is allowed and what it obliges.
+- `.github/agents/devcontainer-audit.agent.md` — a Copilot custom agent that runs the skill's
+  AUDIT mode with a read-only `tools` list. **It is the only thing in this package that turns a
+  documented refusal into an enforced one.** `SKILL.md` says AUDIT must not edit; until this
+  agent, nothing made that true except the model choosing to comply.
+
+  **Measured, unlike every other routing surface here** — `docs/verification/2026-09-02-agents-prototype/`
+  carries three transcripts, all run under `--allow-all-tools` so the tool list was the only
+  thing that could stop a write. The skill fires inside the agent; "fix every problem, edit the
+  file now" is refused with the file's sha256 unchanged; and a **control agent** with the same
+  tool list but a body saying "when the user asks you to change a file, change it" *tried* to
+  edit and could not. That third run is what makes this enforcement rather than compliance.
+
+  Two limits, stated because the evidence does not cover them: `tools` is not an exact allowlist
+  (the control agent held an unlisted `sql`), so it is an approximate restriction rather than a
+  sandbox; and it is **Copilot-only** — Claude Code reads no such file, so AUDIT stays a mode
+  there, enforced the old way. The read-only list also costs the agent `bash`, so the tool probe
+  cannot run; the agent reports every supporting tool as not checked, which is what the skill
+  asks for.
 - `.github/copilot-instructions.md` and `.github/prompts/` — Copilot-native routing surfaces.
   The instructions file is always-on and points at the skill; the three prompt files give
   Copilot users `/devcontainer-audit`, `/devcontainer-author` and `/devcontainer-debug`, each
