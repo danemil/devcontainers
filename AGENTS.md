@@ -64,9 +64,13 @@ deliberately flawed `devcontainer.json`. Baseline in `docs/VERIFICATION.md`, pin
 `8d1f9c6`; re-run before citing it as current.
 
 **Gate E** (does the skill change answers, and is it safe to follow?): `docs/gates/usefulness/`
-carries the twelve tasks and three rounds of results. Any run must disable network-reachable
-tooling in **both** arms (round 3 used `copilot --disable-builtin-mcps`) and must say which —
-the repo is public, so a control that can search the web reaches this repo's own research.
+carries the twelve tasks and every round of results. Any run must disable network-reachable
+tooling in **both** arms and must say how — the repo is public, so a control that can search the
+web reaches this repo's own research. Do not reach for `--disable-builtin-mcps` /
+`--strict-mcp-config`: round 4 measured them and **they blocked egress on neither surface** —
+Copilot's own `web_search` / `web_fetch` survived and one run reached upstream documentation, and
+the one block on `claude` came from an unrelated local hook. A future run needs an egress block it
+actually controls; `README.md` carries the measurement.
 
 ## Invariants that are easy to break
 

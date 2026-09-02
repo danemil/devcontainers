@@ -39,6 +39,13 @@ collisions, none of them textual conflicts in the same lines:**
    numbering has 4 as the upstream-currency grep pair. Reconcile the numbering when folding
    `check-inputs.mjs` into `check-skill.sh`, and fix the README reference in the same commit.
 
+**Collisions 2 and 3 are a SILENT-LOSS step, not a merge chore.** Neither produces a textual
+conflict — this branch edited the inline loop that `check-skill.sh` replaced, so git merges both
+sides cleanly and `RULE_FIELDS` simply never learns `Inputs`, while CI simply never runs
+`check-inputs.mjs`. A merger who resolves only what git flags will land the new field and the new
+check with **nothing that runs enforcing either**. Do 2 and 3 in the merge commit, then re-run the
+checks against merged `main` before pushing.
+
 ## What happened
 
 The approved plan (`docs/superpowers/plans/2026-08-31-devcontainer-agent-package.md`) was executed
@@ -151,7 +158,35 @@ outcome does not turn on how (a) is read.
 4. **A directional criterion for the next round.** Round 4's sub-criterion (d) was an identity
    test on a finding set the lever was designed to change. Replace it with "no new false positive,
    no lost true positive" before running anything else.
-5. **Optional, all documented, none blocking:** VS Code agent mode is unmeasured in all four
+5. **`rules.md` and `SKILL.md` give opposite answers for `DC-FEAT-001`.** Its `Inputs` line ends
+   "the resolved install order, from the devcontainer CLI when it is available" — the same
+   conditional grammar `SKILL.md` uses to excuse the conditionally-named image metadata label, so
+   it reads as excusing the CLI. `SKILL.md`'s worked tally puts that same rule in **not checked**,
+   precisely because the CLI was unavailable. One rule, two files, opposite dispositions. Settle
+   which grammar means "excused" and make both files say the same thing. Left unfixed on purpose:
+   this branch's fix wave did not touch `SKILL.md` or `rules.md`.
+6. **The label condition is unsound for the additively-merging properties.** `DC-LIFE-001`,
+   `DC-SEC-001`, `DC-PERF-001`, `DC-LIFE-003` and `DC-CLAUDE-001` phrase it "the image metadata
+   label when `<property>` is absent from the file". That is right for last-one-wins scalars and
+   wrong for `mounts`, the lifecycle hooks and `remoteEnv`/`containerEnv`, which `SKILL.md` says
+   the label can **add** to even when the property is present. **The phrasing was mandated by this
+   branch's plan**, so the implementation carried a plan defect faithfully — and
+   `tools/check-inputs.mjs` derives its expectation from the same phrasing, so it cannot see it.
+   Fix the plan's phrasing, the five lines and the check together, or the next round re-lands it.
+7. **`DC-FEAT-002` is the corpus's "true but not safe to follow" case in pure form.** Every
+   property it reads is attested label-immune, so `check-inputs.mjs` FAILS the rule if its
+   `Inputs` names the image metadata label — yet its `Detect` turns on what that label freezes. An
+   auditor can read every input the line names, satisfy the clean-bucket test, and never look at
+   the thing the rule says the defect lives in. The check and the rule cannot both be right here;
+   decide which one moves.
+8. **`tools/check-inputs.mjs` passes a clean twelve on four distinct broken corpora**, each proven
+   on a scratch copy: an `Inputs` line written in prose with no backticked property; an `Inputs`
+   line wrapped onto a continuation line; a label condition naming the wrong properties — the
+   exact defect class a human caught by hand in this branch's first review round; and, worst,
+   deleting `SKILL.md`'s `read:` evidence paragraph, which is the lever's behavioural half and has
+   **no check at all**. The check also prints its rule count without asserting it. Treat a green
+   check 5 as covering the label derivation only, not the lever.
+9. **Optional, all documented, none blocking:** VS Code agent mode is unmeasured in all four
    rounds and the `.github/instructions/` pointer is still untested. Copilot firing is 7 of 9 in
    round 4 against 6 of 9 on the same nine tasks in round 3 — a net +1 that hides **T05 firing in
    round 3 and not in round 4**. Feature version pinning still has no rule. Gate D is still
