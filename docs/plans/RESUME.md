@@ -1,12 +1,14 @@
 # RESUME — dev container agent package
 
 **Written:** 2026-09-02, after Gate E round 4. **Status:** Phase 1 SHIPPED and **the repository is
-PUBLIC** — https://github.com/danemil/devcontainers. **Corpus `0.4.0`, package `0.1.0`, on branch
-`inputs-lever` — NOT pushed and NOT merged.** `main` is still at corpus `0.3.0`. Supersedes the
-post-execution handoff of the same name.
+PUBLIC** — https://github.com/danemil/devcontainers. **Corpus `0.4.0`, package `0.1.0`, MERGED
+into `main`** as `42a42ef`, a `--no-ff` merge of `inputs-lever`. **Not pushed:**
+`git rev-list --left-right --count origin/main...main` reported zero behind and thirteen ahead on
+2026-09-02, so none of this has left the machine — re-run that command rather than trusting the
+sentence. Supersedes the post-execution handoff of the same name.
 
-**Where the work is.** Worktree `/Users/emildan/work/devcontainers-inputs-lever`, branch
-`inputs-lever` off `main`. Its commits, oldest first:
+**What the merge brought in.** `inputs-lever`'s commits, oldest first — the record of what
+`42a42ef` landed:
 
 ```
 docs: plan the Inputs lever for the Copilot bucketing short-circuit
@@ -20,38 +22,41 @@ test: gate E round 4 at 0.4.0 — the lever moved Copilot and failed its own cri
 docs: bring the decision record current through round 4
 ```
 
-**A peer session merged a separate branch into local `main`, and that merge is also unpushed.**
-`main` now carries `refactor/harness-consolidation`. **Merging `inputs-lever` will hit four known
-collisions, none of them textual conflicts in the same lines:**
+The worktree `/Users/emildan/work/devcontainers-inputs-lever` still exists, parked at `c355d05`.
+It is a stale copy now, not the place to work.
 
-1. **Five host instruction files became symlinks to `AGENTS.md`** — `CLAUDE.md`, `GEMINI.md`,
-   `QODER.md`, `.windsurfrules` and `.kiro/steering/code-review-graph.md`. The "keep seven files
+`main` had already taken a peer session's `refactor/harness-consolidation` merge, and that merge
+is also unpushed. **Four known collisions were resolved inside `42a42ef` itself, none of them
+textual conflicts in the same lines:**
+
+1. **Five host instruction files are symlinks to `AGENTS.md`** — `CLAUDE.md`, `GEMINI.md`,
+   `QODER.md`, `.windsurfrules` and `.kiro/steering/code-review-graph.md`. They stayed symlinks
+   and the branch's content changes landed in `AGENTS.md` alone. The "keep seven files
    byte-identical, `md5 -q` prints one hash" rule this branch worked under is superseded by one
    real file plus symlinks. Do not re-materialise them.
-2. **The inline check loop became `tools/check-skill.sh`**, whose `RULE_FIELDS` array reads
-   `(Severity Tier Source Quote Verified Detect Fix)`. **`Inputs` must be added to it**, or the
-   per-rule field check silently stops covering the field this branch added.
-3. **`.github/workflows/checks.yml` needs a step for `tools/check-inputs.mjs`.** CI on `main`
-   runs `tools/check-skill.sh`, shell and node syntax, and the tool tests — the Inputs coverage
-   check is not among them.
-4. **The harness numbers this check 7, not 5.** `check-skill.sh` already has checks 1–6;
-   `README.md` on this branch calls the Inputs coverage check "check 5" because the README's own
-   numbering has 4 as the upstream-currency grep pair. Reconcile the numbering when folding
-   `check-inputs.mjs` into `check-skill.sh`, and fix the README reference in the same commit.
+2. **`Inputs` was added to `RULE_FIELDS` in `tools/check-skill.sh`**, after `Verified` and before
+   `Detect`; the array now reads `(Severity Tier Source Quote Verified Inputs Detect Fix)`.
+3. **`tools/check-inputs.mjs` is check 7 of `tools/check-skill.sh`** and runs in
+   `.github/workflows/checks.yml`, alongside a `node --check` step for it.
+4. **Every reference to the new check was renumbered from 5 to 7**, `README.md` included, because
+   `check-skill.sh` already had checks 1–6.
 
-**Collisions 2 and 3 are a SILENT-LOSS step, not a merge chore.** Neither produces a textual
-conflict — this branch edited the inline loop that `check-skill.sh` replaced, so git merges both
-sides cleanly and `RULE_FIELDS` simply never learns `Inputs`, while CI simply never runs
-`check-inputs.mjs`. A merger who resolves only what git flags will land the new field and the new
-check with **nothing that runs enforcing either**. Do 2 and 3 in the merge commit, then re-run the
-checks against merged `main` before pushing.
+**2 and 3 were a SILENT-LOSS step, not a merge chore, and that is the lesson worth carrying.**
+Neither produced a textual conflict: the branch edited the inline check loop that
+`check-skill.sh` had replaced, so git merged both sides cleanly and `RULE_FIELDS` would simply
+never have learned `Inputs`, while CI would simply never have run `check-inputs.mjs` — the new
+field and the new check landing with **nothing that runs enforcing either**. Resolving only what
+git flags is not enough when one side *replaced* the file the other side edited. The closure was
+proven, not assumed: deleting an `Inputs` line on a scratch copy makes the check fail. After the
+merge `tools/check-skill.sh` exits 0 on seven checks, `node --test` passes 25 of 25, and the
+skill files are byte-identical to the branch.
 
 ## 2026-09-02 — harness consolidation (after the review)
 
 `docs/ARCHITECTURE-REVIEW.md` reviewed the whole repository and its §3 was executed the same
 day. What changed, none of it in the shipped skill: `tools/check-skill.sh` is the executable
-copy of the invariants (six checks); `tools/wf-preflight.mjs` and `docs/gates/fp-measure.mjs`
-are importable and tested (`node --test tools/wf-preflight.test.mjs docs/gates/fp-measure.test.mjs`);
+copy of the invariants (six checks that day, seven after the `inputs-lever` merge);
+`tools/wf-preflight.mjs` and `docs/gates/fp-measure.mjs` are importable and tested (`node --test tools/wf-preflight.test.mjs docs/gates/fp-measure.test.mjs`);
 the Gate D heuristics were realigned to corpus `0.3.0` (they had kept the name-keyed
 `DC-SEC-001` that Gate E round 3 removed); `.github/workflows/checks.yml` runs all of it;
 `AGENTS.md` is the single instruction file and the five host-named copies are symlinks. Corpus
@@ -67,13 +72,13 @@ Shipped, all on `main`:
 
 | Path | What it is |
 |---|---|
-| `.claude/skills/devcontainers/SKILL.md` | the product. 502 lines, four frontmatter keys, three modes |
-| `.../references/rules.md` | twelve cited rules, corpus `0.3.0` |
+| `.claude/skills/devcontainers/SKILL.md` | the product. Four frontmatter keys, three modes, over the 500-line budget on purpose |
+| `.../references/rules.md` | twelve cited rules, corpus `0.4.0` |
 | `.../references/spec-facts.md` | spec mechanics, loaded in AUTHOR and DEBUG only |
 | `README.md` | the decision record — contracts, gate results, the enforcing greps |
 | `docs/gates/` | five gates' evidence |
 | `docs/VERIFICATION.md` | the firing baseline, taken at commit `8d1f9c6` |
-| `upstream/` | the awesome-copilot payload, **written and NOT submitted** |
+| `upstream/` | the awesome-copilot payload, **submitted as PR #2911** — see "The upstream PR is OPEN" |
 
 ## What the gates actually established
 
@@ -141,22 +146,21 @@ outcome does not turn on how (a) is read.
 
 ## What is actually left
 
-1. **Land `inputs-lever`.** The branch is complete and unpushed. Merging it means resolving the
-   four collisions listed at the top of this file — the symlinked host files, `RULE_FIELDS`
-   needing `Inputs`, a CI step for `tools/check-inputs.mjs`, and the check numbering — and then
-   pushing `main`, which currently carries a peer session's unpushed merge as well.
-2. **The upstream `github/awesome-copilot` PR — still the owner's to open.** The payload is
-   written at `upstream/awesome-copilot-devcontainers.instructions.md` and was regenerated for
-   `0.4.0`; `upstream/.generated-from` is the authority on its currency, not any prose. **Nothing
-   has been submitted, no PR exists, and no outcome is recorded.** What it needs from the owner,
-   all in `README.md`'s `upstream/` section: the decision to open it at all; running their
-   `npm start` generator and committing what it produces, because a GitHub Action fails the PR if
-   the generator would change anything and the original brief's "update the index by hand" is
-   wrong; targeting `main` rather than `staged`, which "may be outright rejected"; and the call on
-   whether to append `🤖🤖🤖` to the PR title, which their CONTRIBUTING asks of an AI agent and
-   which depends on who presses the button. Note also that `npm install` in their repository runs
-   third-party install scripts on the machine that opens the PR. The round-4 finding bears on the
-   payload: it targets the Copilot surface, which is where the audit bucket's residual sits.
+1. **Push `main`.** The merge is done and the checks pass locally, but nothing has left the
+   machine: `main` carries this merge *and* the peer session's `refactor/harness-consolidation`
+   merge, both unpushed. The push is the owner's to make. Until it happens, the public repository
+   is still at corpus `0.3.0` while every install path documented here points at it, and CI has
+   never run against the merged tree.
+2. **The upstream `github/awesome-copilot` PR — open, unreviewed.** "The upstream PR is OPEN"
+   below is the authority on #2911: its three files, the two spell-checker entries, why
+   `upstream/.generated-from` was not copied there, and what to watch for. This item does not
+   restate it. What is left is the waiting — their CI is green across the board and no human has
+   reviewed it — plus the standing consequence that the payload now lives in a third party's
+   public repository, so any corpus change from here needs a decision about whether to follow it
+   with a second PR. `README.md`'s `upstream/` section still holds the mechanics of contributing
+   there, including that `npm install` in their repository runs third-party install scripts on
+   the machine that opens a PR. The round-4 finding bears on the payload: it targets the Copilot
+   surface, which is where the audit bucket's residual sits.
 3. **A further lever for the Copilot bucketing residual — only if it is worth it.** Prose has been
    tried twice and an output requirement once. The residual is now **one rule and one conditional
    clause** — a partial-enumeration failure, not the no-enumeration failure of round 3. The

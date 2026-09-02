@@ -163,18 +163,20 @@ Re-test before relying on this if the Skills API becomes a target.
 
 ## The line budget, and why this file is never re-flowed
 
-`SKILL.md` is **502 lines against a 500-line budget**, and the overage is deliberate. The 500
-is Claude Code's *documented guidance*, not a host limit enforced by either host — nothing is
-broken at 502, and both hosts discover and list the skill at that length. The two lines are the
-three `metadata` sub-keys carrying attribution and the package version. Trading something the
-author asked for against a cosmetic budget is the wrong direction, so the budget gives.
+`SKILL.md` runs **over its 500-line budget**, and the overage is deliberate. The 500 is Claude
+Code's *documented guidance*, not a host limit enforced by either host — nothing is broken above
+it, and both hosts discover and list the skill at whatever length it is. Trading something the
+author asked for against a cosmetic budget is the wrong direction, so the budget gives, and it
+has gone on giving as the file grew. No check enforces a length and none is wanted, so no figure
+is written here: run `wc -l .claude/skills/devcontainers/SKILL.md` if you need the number.
 
-**No safe reflow reaches 499**, and this was measured rather than assumed. Of the 37 paragraphs
-in the file that could ever save a line by re-wrapping, **31 are excluded** — they contain an
-indent, a list, a quoted phrase, a multi-backtick enumeration, a multi-bold enumeration, or an
-`X, Y and Z` series. Safe savings at wraps 105, 110 and 115 is **zero**. Closing a two-line gap
-would take wrap 140 against a file wrapped at about 98, re-flowing six paragraphs at a second
-visible width — which is a restyling of the file, not a cosmetic tidy, and not worth two lines.
+**No safe reflow ever closed the gap**, and this was measured rather than assumed — back when the
+gap was two lines, the smallest it has ever been. Of the 37 paragraphs in the file that could ever
+save a line by re-wrapping, **31 are excluded** — they contain an indent, a list, a quoted phrase,
+a multi-backtick enumeration, a multi-bold enumeration, or an `X, Y and Z` series. Safe savings at
+wraps 105, 110 and 115 is **zero**. Closing even that two-line gap would have taken wrap 140
+against a file wrapped at about 98, re-flowing six paragraphs at a second visible width — which is
+a restyling of the file, not a cosmetic tidy. The gap has only widened since.
 
 **Why the guard exists, which is the useful half.** A mechanical reflow of this file has
 silently damaged it four times, always the same way: a short enumeration inside flowing prose

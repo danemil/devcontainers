@@ -61,10 +61,11 @@ actually controls; `README.md` carries the measurement.
 
 ## Invariants that are easy to break
 
-- **Never mechanically re-flow `SKILL.md`.** It is 502 lines against a 500-line guideline on
-  purpose. A reflow has silently dropped an item from an inline enumeration four times. Resolve
-  budget pressure by moving content into a reference the mode *already loads*, or by accepting
-  the overage.
+- **Never mechanically re-flow `SKILL.md`.** It runs over the 500-line guideline on purpose, and
+  the overage grows with the file — `wc -l` it rather than trusting a number written anywhere.
+  A reflow has silently dropped an item from an inline enumeration four times. Resolve budget
+  pressure by moving content into a reference the mode *already loads*, or by accepting the
+  overage.
 - **The not-label-storable list in `SKILL.md`** (under "My changes aren't taking effect") **is
   not movable.** AUDIT's bucket table reads it and AUDIT does not load `spec-facts.md`.
 - **Rules live only in `rules.md`.** Every other file cites a `DC-` ID into it. Restating a rule
