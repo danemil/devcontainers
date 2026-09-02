@@ -12,6 +12,7 @@
 #   4. upstream         upstream/.generated-from was generated from the current corpus
 #   5. citations        every DC- id cited inside the package resolves to a rule heading
 #   6. label list       the not-label-storable list is thirteen items in both files and identical
+#   7. inputs coverage  every rule's Inputs line names the image metadata label iff it must
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -21,7 +22,7 @@ RULES="$SKILL_DIR/references/rules.md"
 SPEC_FACTS="$SKILL_DIR/references/spec-facts.md"
 LABEL_LIST_SIZE=13   # spec-facts.md §4 argues the number; this pins it
 UPSTREAM_MARKER="$ROOT/upstream/.generated-from"
-RULE_FIELDS=(Severity Tier Source Quote Verified Detect Fix)
+RULE_FIELDS=(Severity Tier Source Quote Verified Inputs Detect Fix)
 
 status=0
 ok()   { printf 'OK    %s\n' "$*"; }
@@ -46,7 +47,7 @@ esac
 # Per-rule, not per-total: a total-vs-total comparison passes when one rule's
 # Severity is deleted and another rule's Severity is duplicated, since both
 # totals still equal the rule count. Walk rule blocks and require each of the
-# seven fields exactly once per block.
+# eight fields exactly once per block.
 awk_out=$(outside_fences "$RULES" | awk -v fields="${RULE_FIELDS[*]}" '
   BEGIN { n = split(fields, want, " ") }
   function flush(   i, f) {
@@ -79,7 +80,7 @@ awk_out=$(outside_fences "$RULES" | awk -v fields="${RULE_FIELDS[*]}" '
 rule_count=$(printf '%s\n' "$awk_out" | sed -n 's/^COUNT //p')
 bad_lines=$(printf '%s\n' "$awk_out" | grep '^BAD ' || true)
 if [ -z "$bad_lines" ]; then
-  ok "rule fields: $rule_count rules, each carries all seven"
+  ok "rule fields: $rule_count rules, each carries all eight"
 else
   while read -r _ rid field n; do
     [ -z "$rid" ] && continue
@@ -133,6 +134,24 @@ elif [ "$skill_list" != "$facts_list" ]; then
   fail "label list: SKILL.md and spec-facts.md copies differ: $(comm -3 <(printf '%s\n' "$skill_list") <(printf '%s\n' "$facts_list") | tr -s '\t\n' ' ')"
 else
   ok "label list: $skill_n items, both copies agree"
+fi
+
+# --- 7. Inputs coverage ------------------------------------------------------
+# tools/check-inputs.mjs asserts that every rule carries an `Inputs` line and
+# that the line names the image metadata label IFF the rule reads a property
+# SKILL.md's not-label-storable list does not attest. It parses that list and
+# the rule set out of the package at run time — nothing is copied into it — so
+# it is kept as its own file and invoked here, which keeps this script the
+# single entry point. Its Detect-vs-Inputs comparison is advisory and prints
+# `warning` without failing.
+if inputs_out=$(cd "$ROOT" && node tools/check-inputs.mjs 2>&1); then
+  ok "inputs coverage: $(printf '%s\n' "$inputs_out" | tail -1)"
+  # Advisory Detect-vs-Inputs lines are continuation lines under their rule in
+  # the checker's own output; re-attach the rule id so they stand alone here.
+  printf '%s\n' "$inputs_out" | awk '/^DC-/ { r = $1 } /warning/ { sub(/^ +/, ""); print "      " r "  " $0 }'
+else
+  fail "inputs coverage: tools/check-inputs.mjs exited non-zero"
+  printf '%s\n' "$inputs_out"
 fi
 
 exit "$status"

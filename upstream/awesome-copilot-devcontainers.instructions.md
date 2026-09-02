@@ -7,7 +7,7 @@ applyTo: '**/devcontainer.json,**/.devcontainer.json,**/.devcontainer/**,**/devc
 
 Twelve rules for reviewing and writing `devcontainer.json`, Dev Container Features, and the lifecycle configuration that GitHub Codespaces and the reference CLI act on. Each rule states the assertion, what to look for, and the concrete change, and links the source it comes from so the claim can be checked rather than trusted.
 
-Every rule here is a reading task. Nine need only `devcontainer.json`; three also read a Feature's `devcontainer-feature.json` or its `install.sh`. None requires building an image, starting a container, or having the `devcontainer` CLI installed — which is what makes them usable in a code review, where no command can be run at all.
+Every rule here is a reading task. Some need only `devcontainer.json`; some also read a Feature's `devcontainer-feature.json` or its `install.sh`; and some read what else the repository holds — a Codespaces prebuild or CI configuration, a Dockerfile step, an ownership-correcting script. None requires building an image, starting a container, or having the `devcontainer` CLI installed — which is what makes them usable in a code review, where no command can be run at all.
 
 Two rules are easy to over-apply. Read the paragraphs marked **Do not report** before flagging anything about secrets in `remoteEnv` or about `updateRemoteUserUID`.
 

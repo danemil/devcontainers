@@ -4,7 +4,7 @@ description: Use when creating, editing, reviewing, validating or debugging a de
 license: MIT
 metadata:
   version: "0.1.0"  # the package; corpus_version below tracks the twelve-rule corpus, which bumps independently
-  corpus_version: "0.3.0"
+  corpus_version: "0.4.0"
   spec_verified: "2026-08-31"
   author: Emil Dan
   email: emil.dan@publicissapient.com
@@ -141,9 +141,10 @@ If it cannot be read, say so and stop: an audit from memory is worse than no aud
 3. Note what you cannot see: the image metadata label, private Feature contents, the resolved
    install order without the CLI. These become "not checked", not assumptions.
 4. Run the tool probe; run only what is available and read-only.
-5. Walk the twelve rules in `references/rules.md` order. For each, first list the inputs its
-   `Detect` names and mark each one read or not read — **then** pick the bucket. A rule whose
-   inputs you never read cannot be "checked, no finding", however clean the config looks.
+5. Walk the twelve rules in `references/rules.md` order. For each, copy its `Inputs` line —
+   that line is the list — and mark every input on it read, naming where you read it, or not
+   read, **then** pick the bucket. A rule whose inputs you never read cannot be "checked, no
+   finding", however clean the config looks.
 6. Emit the report below.
 
 ### Report format
@@ -181,7 +182,7 @@ rule silently missing is the same failure as "not checked" reading as "passed".
 | Bucket | Use it only when |
 | --- | --- |
 | **finding** | the firing input is present in the file and wins the merge — what you found, you found |
-| **checked, no finding** | you actually read every input the `Detect` names, **and** every property it reads is label-immune or present in the file and winning |
+| **checked, no finding** | you actually read every input on the rule's `Inputs` line, **and** every property it reads is label-immune or present in the file and winning |
 | **not checked** | anything else — an input was unavailable, or the label could still supply what fires the rule |
 | **not applicable** | the rule's own `Detect` scopes it out of this config |
 
@@ -196,14 +197,29 @@ wins — but the label can still **add** what the file never showed: lifecycle c
 these rules' properties, not a law of the merge system; a few merge the other way.) Hence: **an
 audit can soundly report what it found, not that it is clean.**
 
-Working a row needs the `Detect`, the config, and whether each property it names is
-label-storable — the not-label-storable list under "My changes aren't taking effect" is the
-in-file source for that. A compound `Detect` is only as sound as its weakest conjunct.
+Working a row needs the rule's `Inputs` line — that is the list of what to read — the config,
+and whether each property it names is label-storable; the not-label-storable list under "My
+changes aren't taking effect" is the in-file source for that. A compound `Detect` is only as
+sound as its weakest conjunct.
 
 **Not applicable** needs the `Detect`'s own scope clause — a rule limited to configs installing a
 particular tool, applied to one that does not; a Feature-authoring rule, applied to a repo that
 authors none. Name the condition. If you cannot decide, it is **not checked**: not having looked
 is not the same as having looked and found nothing.
+
+Every "checked, no finding" entry in the tally is written as `DC-XXX-NNN  read: <input>
+(<where>), <input> (<where>) …`, naming **every** input on that rule's `Inputs` line; an entry
+that cannot name every one is **not checked**, and a clean bucket with a bare count is not a
+tally. A `<where>` is a file and line, or `image pulled, label read` — never a bare "config".
+Where an `Inputs` line names the image metadata label conditionally and the condition holds,
+"read" means the image was pulled and the label read; where it does not hold, the label is not
+an input for this config and is left out of the entry.
+
+Measured, and stated because it changes how a reader should take this bucket: in the evaluation
+behind corpus `0.4.0`, two of seven Copilot AUDIT runs filed a rule clean on an evidence line
+that omitted an input — the conditionally required image metadata label, and a property the
+config does not set — so on that surface such an entry is a claim to check against the rule's
+`Inputs` line, not a guarantee.
 
 ### The not-checked block
 
@@ -262,8 +278,9 @@ inputs were never read. `DC-DEP-001` is a finding for a different reason, and it
 generalises — it reports only keys it can *see* in the file, and a value present in the file wins
 the merge, so what it cannot see can cost it a missed finding and can never produce a false one.
 That direction argument holds for every rule that fires on presence, and it does not make the
-rule label-immune: three of its four inputs have no row in the source at all. Every placement
-follows from the scenario plus the rule's own `Detect`; re-derive rather than copy. What does not
+rule label-immune: all but one of the properties it reads have no row in the source at all.
+Every placement follows from the scenario plus the rule's own `Inputs` line — the list for rows
+1–3 — and, for row 4, the `Detect`'s scope clause; re-derive rather than copy. What does not
 vary is the reconciliation: twelve, every time. Never merge the buckets, never let a
 green-sounding sentence stand in for any, and never drop an unplaceable rule from the report.
 

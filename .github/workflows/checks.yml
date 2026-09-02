@@ -24,6 +24,8 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      # check-skill.sh is the single entry point: its check 7 shells out to
+      # tools/check-inputs.mjs, so the Inputs coverage check runs here too.
       - name: Package invariants
         run: tools/check-skill.sh
 
@@ -38,6 +40,7 @@ jobs:
       - name: Node syntax
         run: |
           node --check tools/wf-preflight.mjs
+          node --check tools/check-inputs.mjs
           node --check docs/gates/fp-measure.mjs
 
       - name: Tool tests

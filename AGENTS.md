@@ -26,15 +26,19 @@ payload), `tools/wf-preflight.mjs` (unrelated to the skill — see below).
 ## Checks to run after any edit to the skill
 
 From the repo root: `tools/check-skill.sh`. Exit 0 means every invariant holds; a `FAIL` line
-names the one that does not. It runs six checks — portability (no host-specific syntax in the
+names the one that does not. It runs seven checks — portability (no host-specific syntax in the
 shared body), rule-field counting (every rule carries every field, fence-stripped), version
 agreement (`SKILL.md` frontmatter mirrors `rules.md`), upstream currency (`upstream/` was
 generated from the current corpus), citation integrity (every `DC-` id the package cites is a
-heading in `rules.md`) and label-list agreement (the not-label-storable list is thirteen items
-in both files that carry it). `README.md` argues checks 1-3 under "Body portability, and the
-two greps that enforce it" and check 4 under "The verification harness this package specifies";
-check 5's invariant is argued under "Tiers and the citation invariant" and check 6's under "The
-verification harness this package specifies" again, in the `label-safe` bullet. The script is
+heading in `rules.md`), label-list agreement (the not-label-storable list is thirteen items
+in both files that carry it) and Inputs coverage (`node tools/check-inputs.mjs`: every rule
+carries an `Inputs` line, and that line names the image metadata label **iff** it reads a
+property `SKILL.md`'s not-label-storable list does not attest). `README.md` argues checks 1-3
+under "Body portability, and the two greps that enforce it" and check 4 under "The verification
+harness this package specifies"; check 5's invariant is argued under "Tiers and the citation
+invariant" and check 6's under "The verification harness this package specifies" again, in the
+`label-safe` bullet; check 7 is argued in both places — the runnable form under "Body
+portability", the reason it exists in the `Inputs` bullet beside `label-safe`. The script is
 the only executable copy, and `.github/workflows/checks.yml` runs it with the tool tests on
 every push.
 
@@ -47,9 +51,13 @@ deliberately flawed `devcontainer.json`. Baseline in `docs/VERIFICATION.md`, pin
 `8d1f9c6`; re-run before citing it as current.
 
 **Gate E** (does the skill change answers, and is it safe to follow?): `docs/gates/usefulness/`
-carries the twelve tasks and three rounds of results. Any run must disable network-reachable
-tooling in **both** arms (round 3 used `copilot --disable-builtin-mcps`) and must say which —
-the repo is public, so a control that can search the web reaches this repo's own research.
+carries the twelve tasks and every round of results. Any run must disable network-reachable
+tooling in **both** arms and must say how — the repo is public, so a control that can search the
+web reaches this repo's own research. Do not reach for `--disable-builtin-mcps` /
+`--strict-mcp-config`: round 4 measured them and **they blocked egress on neither surface** —
+Copilot's own `web_search` / `web_fetch` survived and one run reached upstream documentation, and
+the one block on `claude` came from an unrelated local hook. A future run needs an egress block it
+actually controls; `README.md` carries the measurement.
 
 ## Invariants that are easy to break
 
