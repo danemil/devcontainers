@@ -2,10 +2,10 @@
 
 **Written:** 2026-09-02, after Gate E round 4. **Status:** Phase 1 SHIPPED and **the repository is
 PUBLIC** — https://github.com/danemil/devcontainers. **Corpus `0.4.0`, package `0.1.0`, MERGED
-into `main`** as `42a42ef`, a `--no-ff` merge of `inputs-lever`. **Not pushed:**
-`git rev-list --left-right --count origin/main...main` reported zero behind and thirteen ahead on
-2026-09-02, so none of this has left the machine — re-run that command rather than trusting the
-sentence. Supersedes the post-execution handoff of the same name.
+into `main`** as `42a42ef`, a `--no-ff` merge of `inputs-lever`, **and pushed** — CI green on
+Node 22 and 26. All of this is public. `git rev-list --left-right --count origin/main...main`
+is the authority on whether that is still true; re-run it rather than trusting this sentence.
+Supersedes the post-execution handoff of the same name.
 
 **What the merge brought in.** `inputs-lever`'s commits, oldest first — the record of what
 `42a42ef` landed:
