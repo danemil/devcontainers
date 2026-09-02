@@ -1,0 +1,13 @@
+{
+  "name": "app",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:latest": {}
+  },
+  "remoteEnv": {
+    "TOKEN": "ghp_examplenotreal000000000000000000000000"
+  },
+  "postCreateCommand": "npm install",
+  "waitFor": "postAttachCommand",
+  "forwardPorts": [3000]
+}

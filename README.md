@@ -511,14 +511,28 @@ a dependency install in `postCreateCommand`, a `TOKEN` in `remoteEnv`, an unpinn
 right mode engage, were rule IDs cited with tier tags, did `DC-ENV-001` come up on the
 `userEnvProbe` question, and was any refusal violated.
 
-**Results live in `docs/VERIFICATION.md`** — the recorded baseline, not this file. Read it as
-a point-in-time measurement rather than a current statement: **it is pinned to commit
-`8d1f9c6`**, identified by hashing every commit on the branch until one matched all three of
-its recorded sha1s. `SKILL.md` has changed since (tier-tag and read-check fixes landed after
-that baseline), so its recorded hash no longer matches the file on disk. A baseline in that
-state has to be re-run before it can be cited as current, which is the whole reason it records
-hashes — and being able to name the commit is what makes "re-run it" a bounded instruction
-rather than a vague one.
+**Results live in `docs/VERIFICATION.md`** — the recorded baseline, not this file. Read it as a
+point-in-time measurement rather than a current statement.
+
+**Current baseline: 2026-09-02, tree `4aafb8c`, corpus `0.4.0` — 6 of 6 fired**, right mode
+engaged in 6 of 6 and announced in 6 of 6 (up from 4 of 6), with `DC-ENV-001` surfacing
+unprompted on both `userEnvProbe` prompts and AUDIT's read-only refusal holding on every run
+that claimed it. The six transcripts, the fixture and the harness are committed verbatim under
+`docs/verification/2026-09-02-4aafb8c/`. It is also the first baseline taken against the shipped
+`.github/skills/` layout, with the `.claude/` symlink staged alongside it, so the Claude Code
+arm exercises the link rather than a copy.
+
+That run also surfaced **one inconsistency worth carrying into the next corpus bump**: three of
+four runs called the unpinned Feature an `[OPINION]` observation and said no rule covers Feature
+pinning, while one attached `DC-FEAT-002 [SPEC]` to it — quoting that rule's claim accurately,
+but stamping specification authority on a recommendation the corpus does not make. `DC-FEAT-002`
+is about resolution timing and idempotency, not pinning.
+
+The prior baseline at commit `8d1f9c6` is kept below it, unedited. It was identified by hashing
+every commit on the branch until one matched all three of its recorded sha1s — which is the whole
+reason a baseline records hashes, and what makes "re-run it" a bounded instruction rather than a
+vague one. Baselines are never refreshed in place: doing so would silently convert a record of
+what ran into a claim about a version that never did.
 
 ---
 

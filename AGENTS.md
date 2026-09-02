@@ -56,8 +56,9 @@ rule template inside a fenced block, and without the strip every count silently 
 
 **Firing check** (does the skill still get selected?): the six `claude -p` / `copilot -p`
 prompts under "Cross-host verification prompts" in `README.md`, run against a scratch repo with a
-deliberately flawed `devcontainer.json`. Baseline in `docs/VERIFICATION.md`, pinned to commit
-`8d1f9c6`; re-run before citing it as current.
+deliberately flawed `devcontainer.json`. Baseline in `docs/VERIFICATION.md`: current baseline 2026-09-02 at `4aafb8c`, corpus `0.4.0`,
+**6 of 6 fired on both hosts**, with the six transcripts under
+`docs/verification/2026-09-02-4aafb8c/`. Re-run before citing it as current.
 
 **Gate E** (does the skill change answers, and is it safe to follow?): `docs/gates/usefulness/`
 carries the twelve tasks and every round of results. Any run must disable network-reachable

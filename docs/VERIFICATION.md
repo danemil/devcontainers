@@ -8,7 +8,104 @@ runs; this measures whether it **fires at all**, in a form one person can re-run
 minutes a quarter without an eval harness.
 
 Run it when a vendor changes skill discovery, when either CLI has a major version bump, or
-quarterly. Compare against the baseline below; a drop in the fire column is the signal.
+quarterly. Compare against the **current** baseline immediately below; a drop in the fire column
+is the signal. Superseded baselines follow it, oldest last, and are never edited in place.
+
+## Baseline 2026-09-02 — corpus `0.4.0`, tree `4aafb8c`
+
+**This is the current baseline. Everything from "Prior baseline, 2026-09-01" down — including
+sections 1-5 — belongs to the superseded `8d1f9c6` run and is kept as a record.** It is not refreshed in place, for the reason
+that baseline itself gives: editing a record of what ran into a claim about a version that
+never ran it destroys the only thing the record was for.
+
+- **Recorded:** 2026-09-02, against tree `4aafb8c` (the merge that moved the skill to
+  `.github/skills/` and narrowed the package to two hosts)
+- **Rules corpus:** `0.4.0` · **package:** `0.1.0`
+- **Hosts:** GitHub Copilot CLI **1.0.82**, Claude Code (Opus 5)
+- **Result: 6 of 6 fired. Right mode engaged in 6 of 6, and announced in 6 of 6** — up from
+  4 of 6 at the prior baseline.
+
+sha1 of the three files actually under test:
+
+```
+7f7319601e29a50c121a921bd2c83538097626d8  SKILL.md
+4988d984ebb5fe76225bb7a2f6c7be7f9c3e6c72  references/rules.md
+33229491320673eeba88ce395f758fe531bb7bc1  references/spec-facts.md
+```
+
+### Results
+
+| # | Host | Prompt | Mode | Fired | Announced | Tier tags | Edited files |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Copilot | Review …for problems | AUDIT | yes | yes | yes | no |
+| 2 | Copilot | terminal but not postCreateCommand | DEBUG | yes | yes | yes | no |
+| 3 | Copilot | Set up a Node 22 dev container | AUTHOR | yes | yes | fallback¹ | yes (intended) |
+| 4 | Claude Code | Review …for problems | AUDIT | yes | yes | yes | no |
+| 5 | Claude Code | terminal but not postCreateCommand | DEBUG | yes | yes | yes | no |
+| 6 | Claude Code | Set up a Node 22 dev container | AUTHOR | yes | yes | yes | no² |
+
+¹ Run 3 printed `DC-SEC-001 [tier unknown, rules.md not loaded in AUTHOR mode]`. That is the
+documented fallback behaving correctly, not a miss: `SKILL.md` requires the tier be reported as
+unknown rather than dropped when the corpus is not open, and AUTHOR does not load `rules.md`.
+
+² Run 6's write was declined by the host's permission layer, so it emitted the diff instead of
+applying it. The refusal to proceed unasked is the skill's; the block is the harness's.
+
+**`DC-ENV-001` came up unprompted on both `userEnvProbe` runs (2 and 5)**, which is the
+criterion `README.md` singles out. **AUDIT's read-only refusal held**: runs 1, 4 and 5 left
+their working trees clean under `git status --porcelain`.
+
+### The one substantive inconsistency
+
+**Runs 1, 3 and 4 said no rule in the corpus covers Feature version pinning and marked the
+unpinned `docker-in-docker:latest` an `[OPINION]` observation. Run 6 attached
+`DC-FEAT-002 [SPEC] WARN` to the same item** — and then tagged that same paragraph `[OPINION]`
+as well, carrying both stamps at once.
+
+Run 6 is not simply wrong: what it *said* about `DC-FEAT-002` — that dependency resolution runs
+only at initial creation and the resolved Feature set is frozen onto the image label, so a
+rebuild from the image picks up neither a moved `latest` nor a changed `dependsOn` — is the
+rule's actual claim, quoted accurately. But the rule's subject is resolution timing and
+idempotency, **not** "pin your Features", and stamping `[SPEC]` on the composite lends
+specification authority to a recommendation the corpus does not make. Three runs out of four
+declined to do this, so it reads as an inference the skill's own tier discipline is meant to
+catch. Worth a look before the next corpus bump; it is not a reason to hold the current one.
+
+### Methodology, and where the two arms differ
+
+Harness and fixture: `docs/verification/2026-09-02-4aafb8c/` (`run.sh`,
+`fixture-devcontainer.json`, and all six transcripts verbatim). Each run got a fresh copy of the
+fixture in its own directory, with the skill staged at **both** `.github/skills/devcontainers/`
+and a `.claude/skills/devcontainers` symlink to it — the layout the repository actually ships,
+so runs 4-6 exercise the symlink rather than a copy.
+
+Three caveats a re-runner should carry:
+
+- **The arms are not tool-matched.** Copilot ran with `--allow-all-tools`; Claude Code ran under
+  its default permission layer, which **blocked every `command -v` probe**. Both hosts reported
+  this correctly — Claude Code distinguished "probe blocked" from "tool absent", which is the
+  honest reading — but the two arms did not have the same tool access, so nothing here compares
+  their tool use.
+- **No user-level copy could shadow the run.** `~/.claude/skills/devcontainers`,
+  `~/.copilot/skills/devcontainers` and `~/.agents/skills/devcontainers` were all verified absent,
+  and `~/.copilot/settings.json` registered no custom `skillDirectories`.
+- **Selection pressure was real but unmeasured.** The Copilot runs saw a large personal-skill
+  field; the exact competing set was not recorded, so "fired against N decoys" cannot be claimed
+  the way the prior baseline claims it.
+
+### What this baseline does not establish
+
+Copilot **CLI** only. VS Code Copilot Chat, the Copilot coding agent, and Copilot code review
+are separate surfaces and remain untested — as does the write half of `npx skills add`, which
+the Install section covers separately. One fixture, one phrasing per mode, one run each: this is
+a firing check, not a measurement of quality, and it says nothing about lift or harm. Gate E
+remains the only thing that does.
+
+---
+
+## Prior baseline, 2026-09-01 — corpus `0.2.0`, tree `8d1f9c6` (superseded)
+
+Kept as a record. Sections 1-5 below all belong to this baseline.
 
 - **Baseline recorded:** 2026-09-01
 - **Skill under test:** `SKILL.md` + `references/rules.md` + `references/spec-facts.md`
