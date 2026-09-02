@@ -4,6 +4,17 @@
 **the repository is PUBLIC** — https://github.com/danemil/devcontainers. Corpus `0.3.0`,
 package `0.1.0`. Supersedes the pre-execution handoff of the same name.
 
+## 2026-09-02 — harness consolidation (after the review)
+
+`docs/ARCHITECTURE-REVIEW.md` reviewed the whole repository and its §3 was executed the same
+day. What changed, none of it in the shipped skill: `tools/check-skill.sh` is the executable
+copy of the invariants (six checks); `tools/wf-preflight.mjs` and `docs/gates/fp-measure.mjs`
+are importable and tested (`node --test tools/wf-preflight.test.mjs docs/gates/fp-measure.test.mjs`);
+the Gate D heuristics were realigned to corpus `0.3.0` (they had kept the name-keyed
+`DC-SEC-001` that Gate E round 3 removed); `.github/workflows/checks.yml` runs all of it;
+`AGENTS.md` is the single instruction file and the five host-named copies are symlinks. Corpus
+and package versions are unchanged. Gate D is still deferred and still has no numbers.
+
 ## What happened
 
 The approved plan (`docs/superpowers/plans/2026-08-31-devcontainer-agent-package.md`) was executed

@@ -178,7 +178,8 @@ mechanism on most hosts) and remain documented.
 
 ## 3. Refactoring strategy
 
-In order. Steps 1 is done; 2–6 are recommendations with the decision each one needs.
+In order. All six were executed on 2026-09-02 on branch `refactor/harness-consolidation`;
+see `docs/superpowers/plans/2026-09-02-harness-consolidation.md` for the task-by-task record.
 
 ### 3.1 Done: make the harness executable and portable
 
