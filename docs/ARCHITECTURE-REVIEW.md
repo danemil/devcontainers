@@ -1,5 +1,15 @@
 # Architecture review — 2026-09-02
 
+
+> **SUPERSEDED — kept as a record, not as guidance.** This review describes the repository as
+> it stood on 2026-09-02 *before* it was narrowed to GitHub Copilot and Claude Code. Most of
+> what it analyses no longer exists: the seven host instruction files, the six MCP configs, the
+> `code-review-graph` stack, the duplicated helper skills and `tools/wf-preflight.mjs` were all
+> removed, and the skill moved from `.claude/skills/devcontainers/` to
+> `.github/skills/devcontainers/` with a symlink back. It is kept because it argues *why* that
+> older shape existed and what consolidating it cost. For the current shape, read `AGENTS.md`
+> and `README.md`; for the change itself, `docs/plans/RESUME.md`.
+
 A fresh-eyes read of the whole repository at commit `6af666e`: what the system is, how data
 moves through it, where it is weak, and what was changed in the same pass. Every claim cites
 a `file:line`. The pass changed **no behaviour of the shipped skill**; it touched only the

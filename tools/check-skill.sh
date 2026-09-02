@@ -16,7 +16,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SKILL_DIR="$ROOT/.claude/skills/devcontainers"
+SKILL_DIR="$ROOT/.github/skills/devcontainers"
 SKILL="$SKILL_DIR/SKILL.md"
 RULES="$SKILL_DIR/references/rules.md"
 SPEC_FACTS="$SKILL_DIR/references/spec-facts.md"

@@ -48,7 +48,7 @@ worthless. **Never run `claude` or `copilot` with this repository as the working
 ```bash
 R=/tmp/verify-baseline
 rm -rf $R; mkdir -p $R/{skills,fixture,runs,logs,prompts}
-cp -R <repo>/.claude/skills/devcontainers $R/skills/devcontainers
+cp -R <repo>/.github/skills/devcontainers $R/skills/devcontainers
 # five decoy skills into $R/skills/{changelog,sql-review,terraform-modules,gha-workflows,api-docs}/SKILL.md
 # fixture into $R/fixture/  (below)
 ```
@@ -127,6 +127,10 @@ ID="${P}_${S}"; D=$R/runs/$ID
 rm -rf "$D"; mkdir -p "$D"
 cp -R "$R/fixture/." "$D/"
 mkdir -p "$D/.claude/skills"; cp -R "$R/skills/." "$D/.claude/skills/"
+# NOTE: the baseline staged skills into .claude/skills/ because that is where the package
+# shipped at 8d1f9c6. The package now ships to .github/skills/. Staging is left as it ran so
+# the pinned numbers stay comparable; a re-runner targeting how it ships today should stage
+# to .github/skills/ instead and say so, rather than editing this line in place.
 PR="$(cat "$R/prompts/$P.txt")"
 cd "$D" || exit 1
 if [ "$S" = "claude" ]; then
@@ -553,7 +557,8 @@ Can you share the exact error text `postCreateCommand` produces? "command not fo
 ## 4. Re-running this in five minutes
 
 1. Rebuild the tree exactly as in section 1 — copy the current
-   `.claude/skills/devcontainers/`, the five decoys, and the fixture into `/tmp`.
+   `.github/skills/devcontainers/` (`.claude/skills/devcontainers/` at the pinned baseline),
+   the five decoys, and the fixture into `/tmp`.
    **Do not run either CLI inside this repository.**
 2. Run the six commands, one fresh session each.
 3. For each run, answer six questions off the tool trace and the answer text:

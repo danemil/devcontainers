@@ -5,7 +5,9 @@ Critical 1 ("is the SELECTION PASS skill selection, or just repo-context reading
 pinned to the `code-review` name?"). It answers the second half of that question and leaves the
 first half open — see RESIDUAL 3.
 
-Raw evidence: `.superpowers/sdd/2026-08-31-devcontainer-agent-package/task-4-selection-rawdata.md`.
+Raw evidence: ~~`.superpowers/sdd/2026-08-31-devcontainer-agent-package/task-4-selection-rawdata.md`~~
+— **deleted 2026-09-02 and not recoverable** (never committed, self-gitignored). The findings
+below are what survives of it.
 Probe repo: `danemil/probe-select-gatec` (private, **deleted** after collection). Skills were
 committed to `main` as *repo state*; each PR touched only its own canary text file, so no
 `SKILL.md` was ever part of any PR diff.

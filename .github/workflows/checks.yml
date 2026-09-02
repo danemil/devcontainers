@@ -32,16 +32,14 @@ jobs:
       - name: Shell syntax
         run: |
           for f in docs/gates/.harvest/harvest.sh docs/gates/.harvest/fetch.sh \
-                   .gemini/hooks/crg-session-start.sh .gemini/hooks/crg-update.sh \
                    tools/check-skill.sh; do
             bash -n "$f" || exit 1
           done
 
       - name: Node syntax
         run: |
-          node --check tools/wf-preflight.mjs
           node --check tools/check-inputs.mjs
           node --check docs/gates/fp-measure.mjs
 
       - name: Tool tests
-        run: node --test tools/wf-preflight.test.mjs docs/gates/fp-measure.test.mjs
+        run: node --test docs/gates/fp-measure.test.mjs
