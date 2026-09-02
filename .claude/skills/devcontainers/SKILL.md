@@ -215,6 +215,12 @@ Where an `Inputs` line names the image metadata label conditionally and the cond
 "read" means the image was pulled and the label read; where it does not hold, the label is not
 an input for this config and is left out of the entry.
 
+Measured, and stated because it changes how a reader should take this bucket: in the evaluation
+behind corpus `0.4.0`, two of seven Copilot AUDIT runs filed a rule clean on an evidence line
+that omitted an input — the conditionally required image metadata label, and a property the
+config does not set — so a `checked, no finding` entry is a claim to check against the rule's
+`Inputs` line, not a guarantee.
+
 ### The not-checked block
 
 Print this every time, even when every line is "not checked":
