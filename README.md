@@ -304,6 +304,23 @@ RV=$(sed -n 's/^corpus_version:[[:space:]]*//p' "$R")
 can be identified without opening a reference file. Nothing but this check keeps them in
 step.
 
+```sh
+# 5. Inputs coverage — exits 0 when every rule passes. (Check 4 is the upstream-currency
+#    grep pair, printed by `upstream/.generated-from` itself and quoted under `upstream/`.)
+node tools/check-inputs.mjs
+```
+
+It derives the not-label-storable list at runtime from the sentence beginning `Not
+label-storable:` under "My changes aren't taking effect" in `SKILL.md`, and the rules and the
+properties each one reads from the backticked identifiers on the `Inputs` lines in `rules.md` —
+neither the list nor the rule count is ever copied into the checker, so moving or rewording that
+sentence fails the check loudly instead of silently checking against a stale copy. With those
+two it asserts that every rule carries an `Inputs` line and that the line names the image
+metadata label **iff** some property it reads is absent from the parsed list — positive
+attestation, never a complement — while its `Detect`-versus-`Inputs` comparison stays advisory,
+printing `warning` without failing the run, because `Detect` prose names properties the rule
+does not read.
+
 ---
 
 ## The verification harness this package specifies
@@ -362,6 +379,15 @@ as a violation, on a corpus where every quote verified and every checker passed.
   properties immune, which is how this was got
   wrong in three files at once; `DC-DEP-001`, described throughout this project as the clean
   case, turns out to be attested for one input of four.
+- **Each rule's `Inputs` field is the executed form of the availability conjunct — and check 5
+  above is built, not specified.** "Checked, no finding" is sound only when both halves hold:
+  every input the rule reads was actually read, *and* the label cannot still supply what fires
+  it. `Inputs` states the first half as a list an auditor can work through and a script can
+  parse, and `tools/check-inputs.mjs` executes the second half against it — asserting the line
+  names the image metadata label exactly when the rule reads a property the parsed
+  not-label-storable list does not attest. That is the `label-safe` derivation above, running.
+  Gate E round 3 measured this conjunct short-circuiting on Copilot, which is why the lever is
+  mechanical rather than another paragraph.
 - **The T02-shaped secret fixtures, run against any changed `Detect`.** `${localEnv:TOKEN}`
   in `remoteEnv` must **not** be flagged — it is the exact form `DC-SEC-001`'s own `Fix`
   prescribes — while a literal secret must be, including a low-entropy one such as

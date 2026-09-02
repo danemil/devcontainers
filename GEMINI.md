@@ -24,7 +24,8 @@ payload), `tools/wf-preflight.mjs` (unrelated to the skill — see below).
 
 ## Checks to run after any edit to the skill
 
-From the repo root. All four currently pass; a failure is the signal, not the numbers.
+From the repo root. Every check below currently passes; a failure is the signal, not the
+numbers.
 
 ```sh
 # 1. Portability — must print OK. Both hosts read the same file, so no host-specific syntax.
@@ -47,6 +48,11 @@ RV=$(sed -n 's/^corpus_version:[[:space:]]*//p' "$R")
 
 # 4. Upstream projection currency — the two lines must match, else upstream/ is stale.
 grep '^corpus_version:' upstream/.generated-from "$R"
+
+# 5. Inputs coverage — exits 0 when every rule passes. Parses the not-label-storable list out
+#    of SKILL.md at runtime and asserts each rule's Inputs line names the image metadata label
+#    iff it reads a property that list does not attest. `warning` lines are advisory.
+node tools/check-inputs.mjs
 ```
 
 The `awk` fence-strip in check 2 is load-bearing: `rules.md` documents its own rule template

@@ -17,8 +17,8 @@
 #   grep '^corpus_version:' upstream/.generated-from
 #   grep '^corpus_version:' .claude/skills/devcontainers/references/rules.md
 
-corpus_version: 0.3.0
-generated: 2026-09-01
+corpus_version: 0.4.0
+generated: 2026-09-02
 source: .claude/skills/devcontainers/references/rules.md
 payload: upstream/awesome-copilot-devcontainers.instructions.md
 target: github/awesome-copilot -> instructions/devcontainers.instructions.md
