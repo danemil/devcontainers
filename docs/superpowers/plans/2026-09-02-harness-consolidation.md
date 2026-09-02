@@ -10,6 +10,10 @@
 
 **Spec:** `docs/ARCHITECTURE-REVIEW.md` §3 (3.2–3.6) and §2 (P3, P6).
 
+**Executed:** 2026-09-02, merged as `e5d4c00`. `2026-09-02-harness-consolidation-ledger.md`,
+beside this file, records the rulings taken during execution and the five review findings
+left deferred.
+
 ## Global Constraints
 
 - **Never edit** `.claude/skills/devcontainers/SKILL.md`, `references/rules.md`, `references/spec-facts.md`, or `upstream/`. Read them; do not write them.
