@@ -66,6 +66,45 @@ Load-bearing detail, because the failures are quiet ones:
   `npx skills add ... -a claude-code` printed an install-summary line claiming a copy to
   `~/.agents/skills/`, and never created it. The file landed only in `~/.claude/skills/`.
 
+### What installs, and what does not
+
+**`npx skills add` installs the skill. Nothing else in this repository travels with it** — and
+one of the things it leaves behind is worth fetching by hand.
+
+| | Installed by `npx skills add`? | |
+| --- | --- | --- |
+| `.github/skills/devcontainers/` | **yes** — `SKILL.md` and both `references/` files | the product |
+| `.github/prompts/*.prompt.md` | no | worth copying — see below |
+| `.github/copilot-instructions.md` | no | repo-level Copilot config |
+| `.github/instructions/devcontainers.instructions.md` | no | repo-level Copilot config |
+| `AGENTS.md` | no | **do not copy it** — see below |
+
+This is the installer behaving correctly, not a bug: a skill installer installs skills, and the
+other four files are repository configuration rather than part of a skill package.
+
+**`AGENTS.md` is not a shippable artefact, despite the name.** It is the instruction file for
+maintaining *this* repository — `tools/check-skill.sh`, the rule corpus, the `.claude` symlink
+invariant, corpus versioning. Copied into a consuming project it would describe a checker and a
+corpus that do not exist there. Leave it here.
+
+**The prompt files are worth copying**, and they are the only thing an install genuinely leaves
+you short of:
+
+```sh
+mkdir -p .github/prompts && cd .github/prompts
+for f in audit author debug; do
+  curl -O "https://raw.githubusercontent.com/danemil/devcontainers/main/.github/prompts/devcontainer-$f.prompt.md"
+done
+```
+
+That gives you `/devcontainer-audit`, `/devcontainer-author` and `/devcontainer-debug` in VS
+Code chat. They are routing only — they carry no rule content, they just name the mode. **You do
+not need them for the skill to work**: the 2026-09-02 baseline fired 6 of 6 on plain phrasings
+with no prompt file present. They are a convenience, not a dependency.
+
+To confirm an install landed, type `/skills` in the Chat view or run `copilot skill list`;
+`devcontainers` should appear under project or personal skills.
+
 ### Copilot
 
 If you check the skill into the repository you are working in, **nothing needs installing**.
