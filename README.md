@@ -254,6 +254,10 @@ Nothing in `SKILL.md` or `references/` may use host-specific syntax: no inline
 `` !`command` `` execution, no ```` ```! ```` execution fences, no `$ARGUMENTS`, no
 `${CLAUDE_*}` variables. Both hosts must read the same bytes.
 
+**The executable copy of every check in this section is `tools/check-skill.sh`**; run it from
+the repo root. The shell below is the argument for each check, kept here so the reasoning
+travels with the decision record, and CI (`.github/workflows/checks.yml`) runs the script.
+
 ```sh
 # 1. Portability — must print nothing.
 grep -nE '^\s*!`|```!|\$ARGUMENTS|\$\{CLAUDE_' \
@@ -779,11 +783,11 @@ Stated so nobody is surprised by an absence:
   before invocation, catching the failure mode where a markdown backtick inside a
   backtick-delimited prompt silently closes the template literal and the parser blames the
   next word.
-- Shared project instructions kept in sync across hosts under host-specific filenames
-  (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `QODER.md`, `.cursorrules`, `.windsurfrules`,
-  `.kiro/steering/`), and MCP wiring for `code-review-graph`. These predate the skill and
-  are workspace configuration, not part of the shipped package. The MCP configs hardcode an
-  absolute `cwd`; update it if you clone this elsewhere.
+- Shared project instructions live once, in `AGENTS.md`; `CLAUDE.md`, `GEMINI.md`, `QODER.md`,
+  `.windsurfrules` and `.kiro/steering/` are symlinks to it, and `.cursorrules` is a deliberate
+  subset. These predate the skill and are workspace configuration, not part of the shipped
+  package. The MCP configs (`.mcp.json`, `.vscode/`, `.cursor/`, `.kiro/`, `.qoder/`,
+  `.opencode.json`) hardcode an absolute `cwd`; update it if you clone this elsewhere.
 
 ---
 
