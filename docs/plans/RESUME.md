@@ -167,6 +167,17 @@ both arms. **A control that can search the web for this repository is not a cont
 that was clean but cannot say why is not reusable evidence. "Unaided" in the quarterly cadence now
 means network-unaided.
 
+**DO NOT PLAN ROUND 5 AROUND THOSE FLAGS: round 4 measured them and NEITHER SURFACE WAS BLOCKED BY
+THEM.** The mitigations were `--disable-builtin-mcps` on copilot and `--strict-mcp-config
+--mcp-config '{"mcpServers":{}}'` on claude. `--disable-builtin-mcps` **does not disable Copilot's
+own `web_search` / `web_fetch`** — one copilot run issued a `web_search` and two `web_fetch` calls
+against upstream documentation and they succeeded — and on the claude surface the one egress
+attempt was stopped by the operator's local `context-mode` PreToolUse hook, a plugin unrelated to
+the experiment, not by the flags. The sweep was still 0 of 18 and nothing fetched was this
+repository, but naming the flags is not the same as achieving isolation, and round 5 needs an
+egress block it actually controls. Full disclosure in `docs/gates/GATE-RESULTS.md` — see the
+round-4 subsection's weaknesses paragraph and "A NEW CONTAMINATION VECTOR".
+
 ## Things that will bite you
 
 - **Never mechanically re-flow `SKILL.md`.** It has been silently damaged four times this way.

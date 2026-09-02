@@ -509,11 +509,12 @@ prescribes. Systematically, 4 of 16 emitted finding lines (25%) were false posit
 from two rules. Two `Detect` fields were narrowed and the gate re-run (20 runs, corpus
 `0.2.0`).
 
-**Read the table by its denominators, because the three rounds did not measure the same
+**Read the table by its denominators, because the four rounds did not measure the same
 thing.** Round 1 ran ten tasks on each surface. Round 2 re-ran a **five-task subset** (T02,
 T03, T08b, T11, T12), two of them probes added to carry the case each narrowing was most at
 risk of losing — its cell is not a ten-task sweep. Round 3 is the full set: **twelve tasks ×
-two surfaces × two arms, 48 runs of 48 attempted, contamination 0 of 48.**
+two surfaces × two arms, 48 runs of 48 attempted, contamination 0 of 48.** Round 4 is narrower
+than any of them and its control is not its own — see the caption below the table.
 
 | | Round 1 (0.1.0) | Round 2 (0.2.0) | Round 3 (0.3.0) | **Round 4 (0.4.0)** |
 | --- | --- | --- | --- | --- |
@@ -524,11 +525,14 @@ two surfaces × two arms, 48 runs of 48 attempted, contamination 0 of 48.**
 | firing, claude | 10/10 | 5/5 | 12/12 = 100% | **9/9 = 100%** |
 | firing, copilot | 8/10 = 80% | 5/5 | 8/12 = 66.7% | **7/9** |
 
-**Round 4 is narrower than round 3 and its control is reused, so read the two columns as
-different measurements.** It ran nine tasks on both surfaces in the WITH arm only; round 3's
-WITHOUT cells are the control, which makes them n=1, from a different day, and from a different
-Claude Code patch version. Round 4's copilot firing is measured against round 3's **6 of 9 on the
-same nine tasks**, not against round 3's whole-set 8 of 12.
+**Round 4 is narrower than round 3, its control is reused, and — the row this table has no
+column for — it FAILED its own pre-registered criterion.** Every round-4 cell above is
+favourable and none of them is the verdict: the table reports lift, harm and firing, while the
+criterion round 4 was run against is the four-part conjunction below, which it did not meet. Read
+the two columns as different measurements. Round 4 ran nine tasks on both surfaces in the WITH arm
+only; round 3's WITHOUT cells are the control, which makes them n=1, from a different day, and
+from a different Claude Code patch version. Round 4's copilot firing is measured against round 3's
+**6 of 9 on the same nine tasks**, not against round 3's whole-set 8 of 12.
 
 **Round 3 is the first evaluation of the package as it actually ships.** Rounds 1 and 2 both
 ran with `references/spec-facts.md` absent, firing the degradation clauses throughout; it
@@ -558,7 +562,8 @@ Copilot's behaviour. It did not, and round 3 concluded the next lever had to be 
 behaviour a long way.** Corpus `0.4.0` replaced the procedural instruction with an output
 requirement whose content is copied from the corpus: every rule carries an `Inputs` line, and each
 clean-bucket tally entry must carry `read:` evidence naming every input on it. The criterion —
-quoted in full in `docs/gates/GATE-RESULTS.md` — is a conjunction of four sub-criteria; (b) and
+quoted verbatim in `docs/gates/GATE-RESULTS.md` and in `docs/gates/usefulness/results.md`'s ROUND
+4 — is a conjunction of four sub-criteria; (b) and
 (c) pass, (a) fails on the proportional reading its own wording implies, and **(d) fails
 outright**, so the outcome does not depend on how (a) is read. What moved: the input-check went
 from **0 of 6** copilot runs to **7 of 7**, and the exact Feature-rule case that opened this debt

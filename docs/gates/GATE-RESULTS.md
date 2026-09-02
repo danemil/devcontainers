@@ -350,13 +350,18 @@ AUTHOR and DEBUG mildly longer but they asserted nothing they should have routed
 STATUS: RUN 2026-09-02 — **FAIL against the pre-registered criterion.** Detail:
 `usefulness/results.md`, ROUND 4.
 
-The criterion, quoted from `task-4-brief.md`: **PASS** iff all of **(a)** among copilot AUDIT runs
-where the skill fired, >= 5 of 6 (or the equivalent proportion if fewer fire — state the
-denominator) emit `read:` evidence lines in the clean bucket and file **zero** rules as "checked,
-no finding" whose inputs the trace shows unread; **(b)** claude stays 9 of 9 on both; **(c)**
-HARM = 0 against the reused round-3 control; **(d)** the set of rule IDs in finding lines per
-fixture is identical to round 3's WITH runs on the same surface — any difference reported line by
-line.
+The criterion, quoted verbatim from `task-4-brief.md`:
+
+> **PASS** iff all of: (a) among copilot AUDIT runs where the skill fired, ≥ 5 of 6 (or the
+> equivalent proportion if fewer fire — state the denominator) emit `read:` evidence lines in
+> the clean bucket and file **zero** rules as "checked, no finding" whose inputs the trace shows
+> unread; (b) claude stays 9 of 9 on both; (c) HARM = 0 against the reused round-3 control;
+> (d) the set of rule IDs in finding lines per fixture is identical to round 3's WITH runs on
+> the same surface (finding set unchanged by a non-Detect bump) — any difference is reported
+> line by line.
+
+**(d)'s parenthetical is load-bearing** — "finding set unchanged by a non-Detect bump" is the
+assumption the criterion rests on, and it is the assumption the defect noted below attacks.
 
 ```
 (a) FAIL (proportional reading; PASS under the literal-count reading)   5 of 7
@@ -412,7 +417,10 @@ operator's local `context-mode` PreToolUse hook rather than by `--strict-mcp-con
 '{"mcpServers":{}}'`. The claude arm ran inside the operator's live hook and plugin stack, not a
 clean room (eight `SessionStart:startup` hook responses per trace). Four copilot runs issued
 root-scoped `find` calls; the sandbox denied all four and nothing ran. T05 on copilot is a firing
-regression. Every cell is n=1.
+regression. **The T08b clean-config fixture carried the same defect as in round 3** —
+`forwardPorts: [3000, 5432]` and `npm run db:seed` with no database service — and round 3's
+grading precedent was kept so the two rounds stay comparable: repo-level observations about the
+fixture are excluded from grading on both arms. Every cell is n=1.
 
 ## THE AVAILABILITY CONJUNCT — THE PROSE FIX DID NOT WORK; THE OUTPUT REQUIREMENT MOSTLY DID
 This was the second recorded debt. Round 3 measured it across 15 AUDIT runs in the WITH arm:
@@ -489,9 +497,10 @@ neither surface, and a future run must not treat naming them as having achieved 
 
 ## CARRIED CAVEATS
 - **The T08b clean-config fixture was defective again** — it forwarded 5432 with no database
-  service — which is two rounds out of three. Excluded from grading on both arms per round 2's
-  precedent; the lift direction is unchanged under the strict reading. The standing finding holds:
-  a "nothing to find" fixture is near-unconstructible for an agent with repo-wide shell access.
+  service — which is now three rounds out of four: rounds 2, 3 and 4. Excluded from grading on
+  both arms per round 2's precedent; the lift direction is unchanged under the strict reading. The
+  standing finding holds: a "nothing to find" fixture is near-unconstructible for an agent with
+  repo-wide shell access.
 - **T04's claude WITHOUT grade is the most contestable** — it names `userEnvProbe: "none"` and then
   denies it is the cause. Graded PARTIAL against the pre-written label. Nothing was re-labelled;
   recorded as a possible label defect for a future round.
