@@ -18,7 +18,7 @@ is what it is.
 
 | Layer | Contents | Shipped? |
 |---|---|---|
-| **Package** | `.claude/skills/devcontainers/SKILL.md` (router + procedures, 502 lines), `references/rules.md` (the twelve-rule corpus, the only rule authority), `references/spec-facts.md` (mechanics, 724 lines) | yes — read verbatim by Claude Code and Copilot |
+| **Package** | `.claude/skills/devcontainers/SKILL.md` (router + procedures), `references/rules.md` (the twelve-rule corpus, the only rule authority), `references/spec-facts.md` (mechanics, 724 lines) | yes — read verbatim by Claude Code and Copilot |
 | **Projections** | `upstream/awesome-copilot-devcontainers.instructions.md` (prose projection of the corpus) + `upstream/.generated-from` (provenance marker); `.github/instructions/devcontainers.instructions.md` (contentless pointer) | one is unsubmitted, one is untested |
 | **Evidence** | `README.md` (decision record, 796 lines), `docs/RESEARCH-BRIEF.md`, `docs/sources/` (25 cached primary sources), `docs/gates/` (gates A–E), `docs/VERIFICATION.md`, `docs/plans/RESUME.md`, `docs/superpowers/plans/` | no |
 | **Verification harness** | four shell checks written as prose in `README.md:251-308` and `CLAUDE.md:25-50`; `docs/gates/fp-measure.mjs` + `docs/gates/.harvest/{harvest,fetch}.sh` (Gate D, deferred) | no |
@@ -160,8 +160,9 @@ mechanism on most hosts) and remain documented.
 - The word "twelve" appears in `SKILL.md:6,133,144,178,482`, `README.md`, and
   `upstream/.generated-from:8`. Check 2 verifies the *count*, not the *word*; a thirteenth rule
   needs a grep the docs do not mention.
-- `SKILL.md` is at 502 lines against a 500-line guideline with a standing order never to
-  reflow it (`CLAUDE.md:67-70`). That is a correct response to a real failure (four dropped
+- `SKILL.md` is over the 500-line guideline with a standing order never to
+  reflow it (`AGENTS.md`, which the other host files symlink to). `wc -l` is the only
+  authority on how far over; no count is written here. That is a correct response to a real failure (four dropped
   enumeration items), but it means every future edit to AUDIT is a zero-sum line trade.
 
 ### What is *not* a problem
