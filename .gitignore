@@ -1,9 +1,15 @@
 # Added by code-review-graph
 .code-review-graph/
 
-# Gate D corpus: reproducible from docs/gates/gate-d.md, not committed
+# Gate D corpus: reproducible from docs/gates/gate-d.md, not committed.
+# The harvest directory is ignored EXCEPT the two scripts and the deduplicated
+# hit list, which are the expensive-to-recreate inputs (see README, "Also in
+# this repository"). Everything else in there is derived on each run.
 docs/gates/fp-corpus/
-docs/gates/.harvest/
+docs/gates/.harvest/*
+!docs/gates/.harvest/harvest.sh
+!docs/gates/.harvest/fetch.sh
+!docs/gates/.harvest/hits.uniq.tsv
 
 # Cached copy of a third-party docs page (code.claude.com), kept locally for
 # offline verification but not redistributed. DC-CLAUDE-001 cites the live URL.

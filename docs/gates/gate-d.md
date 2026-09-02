@@ -24,19 +24,19 @@ none was measured.** An unfinished gate that reports a rate is exactly the
 
 | Path | Contents | Committed? |
 | --- | --- | --- |
-| `docs/gates/fp-measure.mjs` | The harness, verbatim from the brief | yes |
+| `docs/gates/fp-measure.mjs` | The harness — no longer verbatim from the brief; see "2026-09-02 — heuristics realigned to corpus `0.3.0`" below | yes |
 | `docs/gates/fp-corpus/` | **empty** — 0 files (fetch bug) | no, gitignored |
-| `docs/gates/.harvest/hits.uniq.tsv` | 4,176 rows: `repo <TAB> path <TAB> blob-sha` | **yes — force-added past the ignore rule** |
+| `docs/gates/.harvest/hits.uniq.tsv` | 4,176 rows: `repo <TAB> path <TAB> blob-sha` | **yes — negated back in past the ignore rule** |
 | `docs/gates/.harvest/blobs.tsv` | 4,165 rows, deduped to one repo/path per unique blob sha | **no** — ignored, and *derived*; see the resume recipe |
-| `docs/gates/.harvest/harvest.sh` | The shard script | **yes — force-added** |
-| `docs/gates/.harvest/fetch.sh` | The content-fetch script (the one carrying the `IFS` bug) | **yes — force-added** |
+| `docs/gates/.harvest/harvest.sh` | The shard script | **yes — negated back in** |
+| `docs/gates/.harvest/fetch.sh` | The content-fetch script (the one carrying the `IFS` bug) | **yes — negated back in** |
 | `docs/gates/.harvest/harvest.log`, `fetch.log`, `hits.tsv`, `manifest.tsv` | Per-shard yield log, fetch log, pre-dedup hits, empty manifest | no, gitignored |
 | `.gitignore` | gained `docs/gates/fp-corpus/` and `docs/gates/.harvest/` | yes |
 
 > **Preservation — done, not pending.** `docs/gates/.harvest/` holds the *expensive* artifact:
 > the 4,176-row hit list cost 42 code-search calls against a **10 requests/minute** limit, about
-> 8 minutes of wall clock. `.gitignore` still excludes the directory, but `hits.uniq.tsv`,
-> `harvest.sh` and `fetch.sh` were **force-added past that rule on purpose** (`git add -f`), so
+> 8 minutes of wall clock. `.gitignore` excludes the directory **except** `hits.uniq.tsv`,
+> `harvest.sh` and `fetch.sh`, which negation patterns keep tracked on purpose, so
 > those eight minutes now survive a `git clean -fdx` and a fresh clone does not have to buy them
 > again. Given that list, the resumed run needs **no code search at all** — only the content
 > fetch. **The one thing a fresh clone does not get is `blobs.tsv`**, which is derived rather
@@ -199,3 +199,15 @@ intentions, not findings — nothing below has been measured.**
    stripper would be silently biasing the corpus toward simple configs.
 4. Then, and only then, the hand-adjudication: ≥20 hits per heuristic (TP/FP, repo+path
    recorded for every one) and 20 non-flagged configs per heuristic for recall.
+
+---
+
+## 2026-09-02 — heuristics realigned to corpus `0.3.0`
+
+The harness was written verbatim from the brief before Gate E ran. Gate E round 3 changed
+`DC-SEC-001`'s `Detect` from name-keyed to value-keyed; the harness had not followed. All
+three rule-backed heuristics now mirror the `0.3.0` `Detect` text and are pinned by
+`docs/gates/fp-measure.test.mjs` (`node --test docs/gates/fp-measure.test.mjs`).
+`DC-FEAT-PIN` is unchanged and is still a candidate, not a rule. **No numbers were produced;
+the corpus is still empty.** When Gate D runs, run it against this version of the harness
+or later, never the one the brief specified.

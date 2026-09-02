@@ -1,6 +1,7 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Project instructions for every agent host. `CLAUDE.md`, `GEMINI.md`, `QODER.md`, `.windsurfrules`
+and `.kiro/steering/code-review-graph.md` are symlinks to this file; edit only this one.
 
 ## What this repository is
 
@@ -24,33 +25,21 @@ payload), `tools/wf-preflight.mjs` (unrelated to the skill — see below).
 
 ## Checks to run after any edit to the skill
 
-From the repo root. All four currently pass; a failure is the signal, not the numbers.
+From the repo root: `tools/check-skill.sh`. Exit 0 means every invariant holds; a `FAIL` line
+names the one that does not. It runs six checks — portability (no host-specific syntax in the
+shared body), rule-field counting (every rule carries every field, fence-stripped), version
+agreement (`SKILL.md` frontmatter mirrors `rules.md`), upstream currency (`upstream/` was
+generated from the current corpus), citation integrity (every `DC-` id the package cites is a
+heading in `rules.md`) and label-list agreement (the not-label-storable list is thirteen items
+in both files that carry it). `README.md` argues checks 1-3 under "Body portability, and the
+two greps that enforce it" and check 4 under "The verification harness this package specifies";
+check 5's invariant is argued under "Tiers and the citation invariant" and check 6's under "The
+verification harness this package specifies" again, in the `label-safe` bullet. The script is
+the only executable copy, and `.github/workflows/checks.yml` runs it with the tool tests on
+every push.
 
-```sh
-# 1. Portability — must print OK. Both hosts read the same file, so no host-specific syntax.
-grep -nE '^\s*!`|```!|\$ARGUMENTS|\$\{CLAUDE_' \
-  .claude/skills/devcontainers/SKILL.md .claude/skills/devcontainers/references/*.md \
-  && echo "FAIL: host-specific syntax" || echo "OK"
-
-# 2. Rule-field counting — the header and every field must print the same number (12 today).
-R=.claude/skills/devcontainers/references/rules.md
-awk '/^```/{f=!f; next} !f' "$R" | grep -c '^### DC-'
-for fld in Severity Tier Source Quote Verified Detect Fix; do
-  printf '%-9s %s\n' "$fld" "$(awk '/^```/{f=!f; next} !f' "$R" | grep -c "^- \*\*$fld:\*\*")"
-done
-
-# 3. Version agreement — SKILL.md frontmatter copy must equal rules.md's declaration.
-S=.claude/skills/devcontainers/SKILL.md
-SV=$(sed -n 's/^[[:space:]]*corpus_version:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' "$S")
-RV=$(sed -n 's/^corpus_version:[[:space:]]*//p' "$R")
-[ "$SV" = "$RV" ] && echo "OK $SV" || echo "FAIL: SKILL=$SV rules=$RV"
-
-# 4. Upstream projection currency — the two lines must match, else upstream/ is stale.
-grep '^corpus_version:' upstream/.generated-from "$R"
-```
-
-The `awk` fence-strip in check 2 is load-bearing: `rules.md` documents its own rule template
-inside a fenced block, and without the strip every count silently reads 13.
+The `awk` fence-strip inside the rule-field check is load-bearing: `rules.md` documents its own
+rule template inside a fenced block, and without the strip every count silently reads 13.
 
 **Firing check** (does the skill still get selected?): the six `claude -p` / `copilot -p`
 prompts under "Cross-host verification prompts" in `README.md`, run against a scratch repo with a
@@ -98,12 +87,19 @@ the repo is public, so a control that can search the web reaches this repo's own
 
 ## Workspace configuration
 
-- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `QODER.md`, `.windsurfrules` and `.kiro/steering/` are
-  meant to be kept identical across hosts. Editing one means syncing the others.
-- `.mcp.json`, `.vscode/mcp.json`, `.kiro/settings/mcp.json`, `.qoder/mcp.json` and
-  `.claude/settings.json` hardcode an absolute `cwd` for `code-review-graph`; update it if the
-  repo is cloned elsewhere. The graph is near-empty here (markdown is not indexed), so the
-  section below is of limited use in this repo.
+- `AGENTS.md` is the single source of project instructions; `CLAUDE.md`, `GEMINI.md`, `QODER.md`,
+  `.windsurfrules` and `.kiro/steering/code-review-graph.md` are symlinks to it. `.cursorrules`
+  is a deliberate subset (the MCP section only) and stays a real file. On Windows, clone with
+  `core.symlinks=true` or the five links check out as one-line text files.
+- `.mcp.json`, `.vscode/mcp.json`, `.cursor/mcp.json`, `.kiro/settings/mcp.json`,
+  `.qoder/mcp.json`, `.opencode.json` and `.gemini/settings.json` hardcode an absolute `cwd` for
+  `code-review-graph` in their MCP server block; update it if the repo is cloned elsewhere.
+  `.claude/settings.json`'s hooks use `${CLAUDE_PROJECT_DIR:-$PWD}`, and `.gemini/settings.json`'s
+  hooks run `.gemini/hooks/crg-session-start.sh` / `crg-update.sh`, which resolve the repo with
+  `git rev-parse --show-toplevel` — both resolve the path at run time and no longer need updating
+  on clone. `.qoder/settings.json` is the one file whose hook commands still hardcode the path;
+  it was left as-is on purpose, outside this plan's scope. The graph is near-empty here (markdown
+  is not indexed), so the section below is of limited use in this repo.
 - `docs/sources/devcontainer.md` is gitignored on purpose: a cached third-party docs page kept
   for offline citation checks but not redistributed. `DC-CLAUDE-001` cites the live URL.
 - `tools/wf-preflight.mjs` validates a Claude Code Workflow script before invocation:

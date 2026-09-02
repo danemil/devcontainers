@@ -3,13 +3,14 @@
 # Must output ONLY JSON on stdout. Logs go to stderr. Never blocks the session.
 set -euo pipefail
 
-cat > /dev/null || true
+cat > /dev/null || true   # drain the hook's stdin payload
 
-msg="$(code-review-graph status --repo "/Users/emildan/work/devcontainers" 2>&1 | head -n 1 || true)"
+# Hooks run inside the workspace; resolve the repo from there instead of hardcoding it.
+repo="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+msg="$(code-review-graph status --repo "$repo" 2>&1 | head -n 1 || true)"
 
 CRG_MSG="$msg" python3 -c '
-import json,os
-m=os.environ.get("CRG_MSG","")
-print(json.dumps({"systemMessage":m,"suppressOutput":True}))
+import json, os
+print(json.dumps({"systemMessage": os.environ.get("CRG_MSG", ""), "suppressOutput": True}))
 ' 2>/dev/null || echo '{"suppressOutput": true}'
 exit 0

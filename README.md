@@ -254,6 +254,10 @@ Nothing in `SKILL.md` or `references/` may use host-specific syntax: no inline
 `` !`command` `` execution, no ```` ```! ```` execution fences, no `$ARGUMENTS`, no
 `${CLAUDE_*}` variables. Both hosts must read the same bytes.
 
+**The executable copy of every check in this section is `tools/check-skill.sh`**; run it from
+the repo root. The shell below is the argument for each check, kept here so the reasoning
+travels with the decision record, and CI (`.github/workflows/checks.yml`) runs the script.
+
 ```sh
 # 1. Portability — must print nothing.
 grep -nE '^\s*!`|```!|\$ARGUMENTS|\$\{CLAUDE_' \
@@ -369,9 +373,9 @@ as a violation, on a corpus where every quote verified and every checker passed.
 - **`SKILL.md` frontmatter `corpus_version` asserted equal to `rules.md`'s value** (grep 3
   above). They can drift and nothing else catches it.
 - **`upstream/.generated-from`'s `corpus_version` asserted equal to `rules.md`'s value.**
-  Specified here, not yet built. The sidecar exists so the projection's currency is a checkable
-  fact rather than a claim in prose; until the assertion is executed, that check is a human
-  running the two greps the sidecar itself prints.
+  `tools/check-skill.sh` performs this, as check 4 ("upstream projection currency"). The
+  sidecar exists so the projection's currency is a checkable fact rather than a claim in
+  prose, and the script — not a human running the two greps by hand — is what checks it.
 
 Any `Detect` edit re-runs half two. A `Detect` change that alters what the corpus emits for
 an unchanged configuration is a **minor** version bump even when the edit looks tiny.
@@ -759,10 +763,11 @@ Stated so nobody is surprised by an absence:
   fetch.
 - `docs/gates/` — the empirical gate results, with `gate-d.md` carrying the Gate D
   search-phase numbers, the shard method and the rate-limit accounting. **The expensive
-  harvest artefacts ship with the repository**: `.gitignore` excludes `docs/gates/.harvest/`,
-  but `hits.uniq.tsv` (4,176 rows: repo, path, blob sha), `harvest.sh` and `fetch.sh` were
-  force-added past that rule on purpose, so the eight minutes of rate-limited code search
-  survive a `git clean -fdx` and a resumer does not have to buy them again.
+  harvest artefacts ship with the repository**: `.gitignore` excludes `docs/gates/.harvest/`
+  wholesale and then negates three files back in — `hits.uniq.tsv` (4,176 rows: repo, path,
+  blob sha), `harvest.sh` and `fetch.sh` — so those three stay tracked while the rest of the
+  directory stays ignored, and the eight minutes of rate-limited code search survive a
+  `git clean -fdx` and a resumer does not have to buy them again.
   **One thing a resumer should know, though it costs nothing:** `blobs.tsv` — the 4,165-row
   list deduped by blob sha — is **derived, not stored.** It is not committed, but `fetch.sh`'s
   first working line is `awk -F'\t' '!seen[$3]++' hits.uniq.tsv > blobs.tsv`, which
@@ -779,11 +784,11 @@ Stated so nobody is surprised by an absence:
   before invocation, catching the failure mode where a markdown backtick inside a
   backtick-delimited prompt silently closes the template literal and the parser blames the
   next word.
-- Shared project instructions kept in sync across hosts under host-specific filenames
-  (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `QODER.md`, `.cursorrules`, `.windsurfrules`,
-  `.kiro/steering/`), and MCP wiring for `code-review-graph`. These predate the skill and
-  are workspace configuration, not part of the shipped package. The MCP configs hardcode an
-  absolute `cwd`; update it if you clone this elsewhere.
+- Shared project instructions live once, in `AGENTS.md`; `CLAUDE.md`, `GEMINI.md`, `QODER.md`,
+  `.windsurfrules` and `.kiro/steering/` are symlinks to it, and `.cursorrules` is a deliberate
+  subset. These predate the skill and are workspace configuration, not part of the shipped
+  package. The MCP configs (`.mcp.json`, `.vscode/`, `.cursor/`, `.kiro/`, `.qoder/`,
+  `.opencode.json`) hardcode an absolute `cwd`; update it if you clone this elsewhere.
 
 ---
 
