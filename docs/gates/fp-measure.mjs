@@ -32,6 +32,7 @@ const SAMPLE_SIZE = 5; // how many hit filenames to print per heuristic
  * A comment marker inside a string (e.g. a URL) is data, not a comment.
  */
 function stripComments(text) {
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1); // UTF-8 BOM
   let out = '';
   let i = 0;
   let inString = false;
@@ -114,7 +115,7 @@ const isTrivialHook = (command) => flattenCommand(command).trim() === '';
 //   3. secret-shaped key       -> finding unless an obvious placeholder
 //   4. anything else           -> not a finding
 const SUBSTITUTION = /^\$\{(localEnv|containerEnv):/;
-const CREDENTIAL_LITERAL = /^(sk_|ghp_|github_pat_|AKIA|xoxb-|glpat-|npm_)|-----BEGIN [A-Z ]*PRIVATE KEY|:\/\/[^/@\s]+:[^@\s]+@/;
+const CREDENTIAL_LITERAL = /^(sk_|ghp_|github_pat_|AKIA|xoxb-|glpat-)|-----BEGIN [A-Z ]*PRIVATE KEY|:\/\/[^/@\s]+:[^@\s]+@/;
 const SECRET_SHAPED_KEY = /TOKEN|SECRET|KEY|PASSWORD|PASSWD|CREDENTIAL|_PAT\b/i;
 const PLACEHOLDER = /^(changeme|change-me|replace-me|xxx+|todo|<[^>]*>|\$\{?[A-Z_]+\}?)$/i;
 
@@ -179,7 +180,7 @@ function measure(corpusDir) {
   const hits = Object.fromEntries(HEURISTICS.map((h) => [h.id, []]));
   const totals = { parsed: 0, failed: 0 };
 
-  for (const file of readdirSync(corpusDir)) {
+  for (const file of readdirSync(corpusDir).filter((f) => f.endsWith('.json'))) {
     let config;
     try {
       config = parseJsonc(readFileSync(join(corpusDir, file), 'utf8'));

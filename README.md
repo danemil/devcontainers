@@ -373,9 +373,9 @@ as a violation, on a corpus where every quote verified and every checker passed.
 - **`SKILL.md` frontmatter `corpus_version` asserted equal to `rules.md`'s value** (grep 3
   above). They can drift and nothing else catches it.
 - **`upstream/.generated-from`'s `corpus_version` asserted equal to `rules.md`'s value.**
-  Specified here, not yet built. The sidecar exists so the projection's currency is a checkable
-  fact rather than a claim in prose; until the assertion is executed, that check is a human
-  running the two greps the sidecar itself prints.
+  `tools/check-skill.sh` performs this, as check 4 ("upstream projection currency"). The
+  sidecar exists so the projection's currency is a checkable fact rather than a claim in
+  prose, and the script — not a human running the two greps by hand — is what checks it.
 
 Any `Detect` edit re-runs half two. A `Detect` change that alters what the corpus emits for
 an unchanged configuration is a **minor** version bump even when the edit looks tiny.
@@ -763,10 +763,11 @@ Stated so nobody is surprised by an absence:
   fetch.
 - `docs/gates/` — the empirical gate results, with `gate-d.md` carrying the Gate D
   search-phase numbers, the shard method and the rate-limit accounting. **The expensive
-  harvest artefacts ship with the repository**: `.gitignore` excludes `docs/gates/.harvest/`,
-  but `hits.uniq.tsv` (4,176 rows: repo, path, blob sha), `harvest.sh` and `fetch.sh` were
-  force-added past that rule on purpose, so the eight minutes of rate-limited code search
-  survive a `git clean -fdx` and a resumer does not have to buy them again.
+  harvest artefacts ship with the repository**: `.gitignore` excludes `docs/gates/.harvest/`
+  wholesale and then negates three files back in — `hits.uniq.tsv` (4,176 rows: repo, path,
+  blob sha), `harvest.sh` and `fetch.sh` — so those three stay tracked while the rest of the
+  directory stays ignored, and the eight minutes of rate-limited code search survive a
+  `git clean -fdx` and a resumer does not have to buy them again.
   **One thing a resumer should know, though it costs nothing:** `blobs.tsv` — the 4,165-row
   list deduped by blob sha — is **derived, not stored.** It is not committed, but `fetch.sh`'s
   first working line is `awk -F'\t' '!seen[$3]++' hits.uniq.tsv > blobs.tsv`, which

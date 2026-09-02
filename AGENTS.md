@@ -31,8 +31,10 @@ shared body), rule-field counting (every rule carries every field, fence-strippe
 agreement (`SKILL.md` frontmatter mirrors `rules.md`), upstream currency (`upstream/` was
 generated from the current corpus), citation integrity (every `DC-` id the package cites is a
 heading in `rules.md`) and label-list agreement (the not-label-storable list is thirteen items
-in both files that carry it). `README.md` argues each one; the script is the only executable
-copy, and `.github/workflows/checks.yml` runs it with the tool tests on every push.
+in both files that carry it). `README.md` argues checks 1-3 under "Body portability, and the
+two greps that enforce it", and checks 4-6 under "The verification harness this package
+specifies"; the script is the only executable copy, and `.github/workflows/checks.yml` runs it
+with the tool tests on every push.
 
 The `awk` fence-strip inside the rule-field check is load-bearing: `rules.md` documents its own
 rule template inside a fenced block, and without the strip every count silently reads 13.
@@ -87,10 +89,14 @@ the repo is public, so a control that can search the web reaches this repo's own
   `.windsurfrules` and `.kiro/steering/code-review-graph.md` are symlinks to it. `.cursorrules`
   is a deliberate subset (the MCP section only) and stays a real file. On Windows, clone with
   `core.symlinks=true` or the five links check out as one-line text files.
-- `.mcp.json`, `.vscode/mcp.json`, `.kiro/settings/mcp.json`, `.qoder/mcp.json` and
-  `.claude/settings.json` hardcode an absolute `cwd` for `code-review-graph`; update it if the
-  repo is cloned elsewhere. The graph is near-empty here (markdown is not indexed), so the
-  section below is of limited use in this repo.
+- `.mcp.json`, `.vscode/mcp.json`, `.cursor/mcp.json`, `.kiro/settings/mcp.json`,
+  `.qoder/mcp.json` and `.opencode.json` hardcode an absolute `cwd` for `code-review-graph`;
+  update it if the repo is cloned elsewhere. `.claude/settings.json`'s hooks use
+  `${CLAUDE_PROJECT_DIR:-$PWD}` instead and no longer need updating on clone.
+  `.qoder/settings.json` and `.gemini/settings.json` carry hook commands byte-parallel to
+  `.claude/settings.json`'s and still hardcode the path — they are the remaining non-portable
+  pair, left as-is on purpose; that is outside this plan's scope. The graph is near-empty here
+  (markdown is not indexed), so the section below is of limited use in this repo.
 - `docs/sources/devcontainer.md` is gitignored on purpose: a cached third-party docs page kept
   for offline citation checks but not redistributed. `DC-CLAUDE-001` cites the live URL.
 - `tools/wf-preflight.mjs` validates a Claude Code Workflow script before invocation:

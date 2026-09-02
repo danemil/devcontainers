@@ -1,11 +1,12 @@
 # The package invariants and the tooling's own tests. Everything here is
 # runnable locally with the same commands; CI only makes "all checks pass"
-# a fact rather than a claim. Tests run on the declared Node.js floor (22) and
-# on the runtime the repo is developed against (26).
+# a fact rather than a claim. Tests run on the oldest Node.js the tooling is
+# intended to run on (22) and on the runtime the repo is developed against (26).
 name: checks
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:

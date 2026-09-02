@@ -32,23 +32,64 @@ fail() { printf 'FAIL  %s\n' "$*"; status=1; }
 outside_fences() { awk '/^```/{f=!f; next} !f' "$1"; }
 
 # --- 1. portability ----------------------------------------------------------
-if grep -nE '^\s*!`|```!|\$ARGUMENTS|\$\{CLAUDE_' "$SKILL" "$SKILL_DIR"/references/*.md; then
-  fail "portability: host-specific syntax above"
-else
-  ok "portability"
-fi
+# grep exits 1 for "no match" (pass), 0 for "matched" (real finding), and 2 for
+# a read failure (e.g. an input file missing or unreadable) — the last of
+# those is not "no match" and must not print OK.
+grep -nE '^\s*!`|```!|\$ARGUMENTS|\$\{CLAUDE_' "$SKILL" "$SKILL_DIR"/references/*.md
+case $? in
+  1) ok "portability" ;;
+  0) fail "portability: host-specific syntax above" ;;
+  *) fail "portability: could not read $SKILL or $SKILL_DIR/references/*.md" ;;
+esac
 
 # --- 2. rule-field counting --------------------------------------------------
-rule_count=$(outside_fences "$RULES" | grep -c '^### DC-')
-fields_ok=1
-for field in "${RULE_FIELDS[@]}"; do
-  n=$(outside_fences "$RULES" | grep -c "^- \*\*$field:\*\*")
-  if [ "$n" -ne "$rule_count" ]; then
-    fail "rule fields: $field appears $n times, expected $rule_count"
-    fields_ok=0
-  fi
-done
-[ "$fields_ok" -eq 1 ] && ok "rule fields: $rule_count rules, every field present $rule_count times"
+# Per-rule, not per-total: a total-vs-total comparison passes when one rule's
+# Severity is deleted and another rule's Severity is duplicated, since both
+# totals still equal the rule count. Walk rule blocks and require each of the
+# seven fields exactly once per block.
+awk_out=$(outside_fences "$RULES" | awk -v fields="${RULE_FIELDS[*]}" '
+  BEGIN { n = split(fields, want, " ") }
+  function flush(   i, f) {
+    if (rule_id == "") return
+    rule_count++
+    for (i = 1; i <= n; i++) {
+      f = want[i]
+      if (cnt[f] != 1) printf "BAD %s %s %d\n", rule_id, f, cnt[f]
+    }
+  }
+  /^### DC-/ {
+    flush()
+    rule_id = $0
+    sub(/^### /, "", rule_id)
+    sub(/ ·.*/, "", rule_id)
+    for (i = 1; i <= n; i++) cnt[want[i]] = 0
+    next
+  }
+  {
+    for (i = 1; i <= n; i++) {
+      f = want[i]
+      if ($0 ~ "^- \\*\\*" f ":\\*\\*") cnt[f]++
+    }
+  }
+  END {
+    flush()
+    print "COUNT " rule_count
+  }
+')
+rule_count=$(printf '%s\n' "$awk_out" | sed -n 's/^COUNT //p')
+bad_lines=$(printf '%s\n' "$awk_out" | grep '^BAD ' || true)
+if [ -z "$bad_lines" ]; then
+  ok "rule fields: $rule_count rules, each carries all seven"
+else
+  while read -r _ rid field n; do
+    [ -z "$rid" ] && continue
+    if [ "$n" -eq 0 ]; then
+      fail "rule fields: $rid is missing $field"
+    else
+      fail "rule fields: $rid carries $field $n times, expected 1"
+    fi
+  done <<<"$bad_lines"
+fi
 
 # --- 3. version agreement ----------------------------------------------------
 skill_version=$(sed -n 's/^[[:space:]]*corpus_version:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' "$SKILL")
@@ -61,7 +102,7 @@ fi
 
 # --- 4. upstream projection currency -----------------------------------------
 upstream_version=$(sed -n 's/^corpus_version:[[:space:]]*//p' "$UPSTREAM_MARKER")
-if [ "$upstream_version" = "$rules_version" ]; then
+if [ -n "$upstream_version" ] && [ "$upstream_version" = "$rules_version" ]; then
   ok "upstream: projection generated from $upstream_version"
 else
   fail "upstream: generated from $upstream_version, corpus is $rules_version — regenerate upstream/"
