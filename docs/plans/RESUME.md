@@ -213,6 +213,18 @@ repository, but naming the flags is not the same as achieving isolation, and rou
 egress block it actually controls. Full disclosure in `docs/gates/GATE-RESULTS.md` — see the
 round-4 subsection's weaknesses paragraph and "A NEW CONTAMINATION VECTOR".
 
+## Where round 4's evidence lives
+
+The raw traces for all eighteen round-4 runs, the grading notes and the verified evaluation
+report are **outside git**, in this session's scratch workspace at
+`.superpowers/sdd/2026-09-02-inputs-lever/` — `task-4-report.md` is the verified report every
+number in the record was copied from, and `gate-e4-raw/` holds one stdout and one stderr file
+per run plus the harness that produced them. `/tmp/gate-e4` still holds the fixtures, prompts
+and per-run working directories. **None of it is committed**, and whether any of it should be
+is an open question for the repository owner: the traces carry absolute local paths and the
+operator's plugin names, and this repository is public. `docs/gates/gate-c-selection.md` is the
+precedent for pointing at raw evidence kept under `.superpowers/`.
+
 ## Things that will bite you
 
 - **Never mechanically re-flow `SKILL.md`.** It has been silently damaged four times this way.
