@@ -35,8 +35,8 @@
 
 import { readFileSync } from 'node:fs';
 
-const SKILL = '.claude/skills/devcontainers/SKILL.md';
-const RULES = '.claude/skills/devcontainers/references/rules.md';
+const SKILL = '.github/skills/devcontainers/SKILL.md';
+const RULES = '.github/skills/devcontainers/references/rules.md';
 
 const die = (msg) => { console.error(`FAIL: ${msg}`); process.exit(1); };
 

@@ -7,6 +7,51 @@ Node 22 and 26. All of this is public. `git rev-list --left-right --count origin
 is the authority on whether that is still true; re-run it rather than trusting this sentence.
 Supersedes the post-execution handoff of the same name.
 
+## 2026-09-02 (later) — narrowed to two hosts, skill moved to `.github/skills/`
+
+**Read this before anything below it.** The repository was narrowed to GitHub Copilot and
+Claude Code only, with Copilot as the primary target, and the skill's canonical location moved.
+Nothing in the corpus, the rules or the skill's prose changed: the three product files are
+byte-identical, corpus stays `0.4.0`, package stays `0.1.0`, and `tools/check-skill.sh` exits 0
+on all seven checks from the new path.
+
+What moved and what went:
+
+- **`.github/skills/devcontainers/` is canonical**; `.claude/skills/devcontainers` is now a
+  symlink to it. Copilot reads `.github/skills/`, `.claude/skills/` and `.agents/skills/`;
+  Claude Code reads only `.claude/skills/`. `tools/check-skill.sh` and `tools/check-inputs.mjs`
+  read the canonical path, never the link.
+- **Added, all routing-only:** `.github/copilot-instructions.md` and three
+  `.github/prompts/*.prompt.md` files (audit / author / debug). They carry no rule content, and
+  the contentless-pointer rule that binds `.github/instructions/` binds them too.
+- **Removed:** every non-Copilot, non-Claude host (`.gemini/`, `.qoder/`, `.cursor/`,
+  `.cursorrules`, `.kiro/`, `.windsurfrules`, `.opencode.json`, `GEMINI.md`, `QODER.md`); the
+  whole `code-review-graph` MCP stack (`.mcp.json`, `.vscode/mcp.json`, its hooks, its four
+  helper skills, the `AGENTS.md` section); `tools/wf-preflight.mjs` and its test; and the
+  untracked `.superpowers/` and `docs/superpowers/plans/` build artefacts. Recoverable from git
+  history — **except `.superpowers/`, which was never tracked and is therefore gone for good.**
+  Anything below that cites a path under `.superpowers/` is now a dead pointer; the conclusions
+  those files supported survive in `docs/gates/` and in this file, but the raw runs do not.
+
+**The install channel was checked against the new layout; one residual is left.** `skills@1.5.23`
+lists `.github/skills/` in both its project-skill directories and its remote `PRIORITY_PREFIXES`,
+and its own `findSkillMdPaths` — extracted verbatim from the bundle and run against a tree built
+from this repository's `git ls-files -s` — resolves exactly one path,
+`.github/skills/devcontainers/SKILL.md`. The symlink cannot collide with it: git stores
+`.claude/skills/devcontainers` as one mode-`120000` blob, the resolver only matches blobs whose
+path ends in `skill.md`, and there is no `.claude/skills/devcontainers/SKILL.md` tree entry at
+all. The raw-endpoint worry was misplaced — the CLI clones into a temp dir and copies the
+resolved folder, so `references/` is materialised by git. The check was then repeated against the tree the Git Trees API actually serves for the pushed
+branch — `.claude/skills/devcontainers` comes back as a `120000` blob, `.github/skills/devcontainers/`
+as a tree with `SKILL.md` and both `references/` files under it, and the resolver returns the same
+single path. **What is left:** none of this was an end-to-end install. Nothing was written to a
+global skills directory, so the write half of `npx skills add` is still unobserved. Pointing the other way, the move closes Gate C's residual: Copilot
+code review was only ever observed reading `.github/skills/`.
+
+**Also removed a dependency you may not expect.** `tools/wf-preflight.mjs` was referenced by
+absolute path from the operator's user-level `CLAUDE.md`. That reference now dangles; the file
+is in git history at `c51fd36`.
+
 **What the merge brought in.** `inputs-lever`'s commits, oldest first — the record of what
 `42a42ef` landed:
 
@@ -56,7 +101,7 @@ skill files are byte-identical to the branch.
 `docs/ARCHITECTURE-REVIEW.md` reviewed the whole repository and its §3 was executed the same
 day. What changed, none of it in the shipped skill: `tools/check-skill.sh` is the executable
 copy of the invariants (six checks that day, seven after the `inputs-lever` merge);
-`tools/wf-preflight.mjs` and `docs/gates/fp-measure.mjs` are importable and tested (`node --test tools/wf-preflight.test.mjs docs/gates/fp-measure.test.mjs`);
+`tools/wf-preflight.mjs` and `docs/gates/fp-measure.mjs` are importable and tested (`node --test tools/wf-preflight.test.mjs docs/gates/fp-measure.test.mjs`) — `wf-preflight` was removed later that day, see the top section;
 the Gate D heuristics were realigned to corpus `0.3.0` (they had kept the name-keyed
 `DC-SEC-001` that Gate E round 3 removed); `.github/workflows/checks.yml` runs all of it;
 `AGENTS.md` is the single instruction file and the five host-named copies are symlinks. Corpus
@@ -64,7 +109,8 @@ and package versions are unchanged. Gate D is still deferred and still has no nu
 
 ## What happened
 
-The approved plan (`docs/superpowers/plans/2026-08-31-devcontainer-agent-package.md`) was executed
+The approved plan (`docs/superpowers/plans/2026-08-31-devcontainer-agent-package.md`, removed —
+see the top section; in git history at `c51fd36`) was executed
 Tasks 1–11. Tasks 12 and 13 did **not** run, and that is the plan working as designed rather than
 work left undone: both are conditional on Gate D, which is deferred with an empty corpus.
 
@@ -72,7 +118,7 @@ Shipped, all on `main`:
 
 | Path | What it is |
 |---|---|
-| `.claude/skills/devcontainers/SKILL.md` | the product. Four frontmatter keys, three modes, over the 500-line budget on purpose |
+| `.github/skills/devcontainers/SKILL.md` | the product. Four frontmatter keys, three modes, over the 500-line budget on purpose |
 | `.../references/rules.md` | twelve cited rules, corpus `0.4.0` |
 | `.../references/spec-facts.md` | spec mechanics, loaded in AUTHOR and DEBUG only |
 | `README.md` | the decision record — contracts, gate results, the enforcing greps |
@@ -253,13 +299,19 @@ so any corpus change from here needs a decision about whether to follow it with 
 
 The raw traces for all eighteen round-4 runs, the grading notes and the verified evaluation
 report are **outside git**, in this session's scratch workspace at
-`.superpowers/sdd/2026-09-02-inputs-lever/` — `task-4-report.md` is the verified report every
-number in the record was copied from, and `gate-e4-raw/` holds one stdout and one stderr file
-per run plus the harness that produced them. `/tmp/gate-e4` still holds the fixtures, prompts
-and per-run working directories. **None of it is committed**, and whether any of it should be
-is an open question for the repository owner: the traces carry absolute local paths and the
-operator's plugin names, and this repository is public. `docs/gates/gate-c-selection.md` is the
-precedent for pointing at raw evidence kept under `.superpowers/`.
+~~`.superpowers/sdd/2026-09-02-inputs-lever/`~~ — **DELETED 2026-09-02 and not recoverable.**
+It held `task-4-report.md`, the verified report every number in the record was copied from, and
+`gate-e4-raw/`, one stdout and one stderr file per run plus the harness that produced them. The
+directory was never committed and was self-gitignored, so removing it destroyed it; git history
+does not have it. The open question it posed — whether traces carrying absolute local paths and
+the operator's plugin names belong in a public repository — was answered by deletion rather than
+by decision. **`/tmp/gate-e4` still holds a superset of it — verified present 2026-09-02, 17 MB, including
+`raw/`, `fixtures/`, `prompts/`, `parked/` and `grading-notes.md`.** That is the only surviving
+copy of the raw runs and it is in `/tmp`, which the next reboot clears. Move it somewhere
+durable before doing anything else, or accept losing it.
+What survives is derived, not raw: the numbers in `docs/gates/usefulness/results.md` and in this
+file. `docs/gates/gate-c-selection.md` cites a sibling `.superpowers/` path that is gone the
+same way.
 
 ## Things that will bite you
 

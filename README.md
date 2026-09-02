@@ -5,19 +5,29 @@ review or debug a `devcontainer.json`. It carries a twelve-rule cited corpus, th
 specification mechanics behind those rules, and an audit procedure that refuses to let
 "not checked" read as "passed".
 
-It is written to be read by **Claude Code and GitHub Copilot from the same file**, with no
+It is written to be read by **GitHub Copilot and Claude Code from the same file**, with no
 generator, no build step and no per-host fork. The whole shipped product is one directory:
 
 ```
-.claude/skills/devcontainers/
+.github/skills/devcontainers/
 ├── SKILL.md                     # modes, refusals, audit procedure, symptom lists
 └── references/
     ├── rules.md                 # the twelve rules — the only place rule content lives
     └── spec-facts.md            # lifecycle, prebuilds, merge rules, substitutions, CLI
+
+.claude/skills/devcontainers -> ../../.github/skills/devcontainers    # symlink
 ```
 
-plus `.github/instructions/devcontainers.instructions.md`, a contentless pointer whose
-mechanism is **unproven** — see below.
+plus three Copilot-native routing surfaces that carry no rule content —
+`.github/instructions/devcontainers.instructions.md` (a contentless pointer whose mechanism is
+**unproven** — see below), `.github/copilot-instructions.md`, and `.github/prompts/`.
+
+**Why `.github/skills/` and not `.claude/skills/`.** Copilot documents three project-skill
+locations — `.github/skills/`, `.claude/skills/` and `.agents/skills/`; Claude Code documents
+one, `.claude/skills/`. Either canonical path is therefore reachable by both hosts, one of them
+via a symlink. `.github/skills/` is canonical here because it is Copilot's own convention and
+because it is the path every Copilot gate below was *not* run from — see the caveat under
+"Install", which is the one thing this move puts at risk.
 
 **Status: Phase 1 ships, and the package has been evaluated as it actually ships.** That is a
 decision record, not a mood: Gate E was re-run in full against the current corpus — 48 runs,
@@ -70,17 +80,18 @@ Load-bearing detail, because the failures are quiet ones:
 
 ### Copilot
 
-If you check the skill into the repository you are working in, **nothing needs installing**:
-`copilot skill --help` documents `.claude/skills/` as a native Project discovery source, and
-Gate B observed the Copilot CLI listing, selecting and resolving `references/` from there
-with no `--allow-tool` flag.
+If you check the skill into the repository you are working in, **nothing needs installing**.
+`copilot skill --help` documents `.github/skills/`, `.claude/skills/` and `.agents/skills/` as
+native Project discovery sources; this repository ships to the first and links the second, so
+Copilot finds it either way. Gate B observed the Copilot CLI listing, selecting and resolving
+`references/` from a project skill with no `--allow-tool` flag.
 
 To use it **outside** that workspace, the only Copilot path that delivers the corpus is two
 steps:
 
 ```sh
 git clone https://github.com/danemil/devcontainers
-copilot skill add ./devcontainers/.claude/skills/devcontainers   # directory form — a pointer, not a copy
+copilot skill add ./devcontainers/.github/skills/devcontainers   # directory form — a pointer, not a copy
 ```
 
 Do **not** use `copilot skill add <path>/SKILL.md`. The file form copies that one file and
@@ -95,6 +106,43 @@ writes into the runner's global skills directory — so nothing here should be r
 end-to-end test. The channel was measured; this repository's reachability was measured; the
 composition of the two has not been.
 
+**The move to `.github/skills/` was checked against the installer before it shipped**, because
+every Copilot gate below was run with the skill at `.claude/skills/` and the channel had never
+seen this layout. What was done, and what it does and does not establish:
+
+- **The `skills` CLI resolver was read and then run against this repository's real tree.**
+  `skills@1.5.23` carries `.github/skills/` in both `AGENT_PROJECT_SKILL_DIRS` and the
+  `PRIORITY_PREFIXES` list its remote resolver walks. Feeding `findSkillMdPaths` — the bundled
+  function itself, extracted verbatim, not a reimplementation — a tree built from
+  `git ls-files -s` with GitHub's own mode-to-type mapping returns exactly one path:
+  `.github/skills/devcontainers/SKILL.md`.
+- **The symlink is invisible to the resolver, which is why it cannot collide.** Git stores
+  `.claude/skills/devcontainers` as a single mode-`120000` blob, and the resolver filters for
+  `type === "blob"` paths ending in `skill.md`. A directory symlink is a blob whose path ends
+  in the skill's *name*, so it never matches, and the tree carries no
+  `.claude/skills/devcontainers/SKILL.md` entry to match in the first place. `.claude/skills/`
+  is checked **before** `.github/skills/` in `PRIORITY_PREFIXES`; it finds nothing there and
+  falls through. The raw-endpoint worry that motivated this check does not arise: the CLI
+  **clones** the repository into a temporary directory and copies the resolved folder, so
+  `references/` is materialised by git rather than fetched file by file — which is also the
+  mechanism behind Gate A's fidelity PASS.
+- **Re-run against the tree GitHub actually serves, once the branch was pushed.** The Git Trees
+  API returns `.claude/skills/devcontainers` as a `120000` **blob** and
+  `.github/skills/devcontainers/` as a `040000` tree with its `SKILL.md` and both `references/`
+  files beneath it, exactly as predicted; the same extracted resolver returns the same single
+  path. The local-tree caveat this bullet used to carry is discharged.
+- **What is still not established is the install itself.** Nothing was written to a global
+  skills directory — resolution and fetch mechanism were checked, the write half was not.
+- **Gate B's PASS still transfers by documentation, not by observation.** Copilot's own help
+  text lists `.github/skills/` alongside `.claude/skills/` as a Project source, which is why the
+  claim above is written as "either way" — but nothing here has watched Copilot resolve
+  `references/` from `.github/skills/` specifically.
+
+Pointing the other way: the move **closes** a residual Gate C recorded. Copilot *code review*
+was only ever observed reading `.github/skills/`, and Gate C flagged that whether it reads
+`.claude/skills/` at all was untested. Shipping to `.github/skills/` removes that question
+rather than answering it.
+
 **Why this matters more than an install-mechanics footnote.** Gate E found the package's
 lift is almost entirely on the Copilot surface — on `claude -p` the base model plus a shell
 already scores 8/10, and three control runs built real containers and ran the real
@@ -103,12 +151,25 @@ on the highest-value surface.
 
 ### Manual
 
-Copy `.claude/skills/devcontainers/` into your repository (project scope, recommended — both
-hosts read it, and the level-3 `references/` files resolve because they sit in the
-workspace) or into `~/.claude/skills/` (personal scope). Gate B's PASS was measured for a
-**project-scoped skill inside the CLI's working directory**; the probe cannot distinguish
-skill-relative resolution from ordinary working-directory file reading, so it does not
-transfer to a personally installed copy sitting outside the workspace.
+Copy `.github/skills/devcontainers/` into your repository at project scope — recommended,
+because the level-3 `references/` files resolve when they sit in the workspace. Copilot reads
+that path natively. **Claude Code does not**: it discovers project skills only under
+`.claude/skills/`, so add the link this repository ships with —
+
+```sh
+ln -s ../../.github/skills/devcontainers .claude/skills/devcontainers
+```
+
+— or copy the directory to `.claude/skills/devcontainers/` instead and accept two copies to
+keep in step. For personal scope, copy it into `~/.claude/skills/` (both hosts) or
+`~/.copilot/skills/` (Copilot only).
+
+Gate B's PASS was measured for a **project-scoped skill inside the CLI's working directory**;
+the probe cannot distinguish skill-relative resolution from ordinary working-directory file
+reading, so it does not transfer to a personally installed copy sitting outside the workspace.
+
+On Windows, clone with `core.symlinks=true`. Without it the link checks out as a one-line text
+file and Claude Code sees no skill at all — silently.
 
 ---
 
@@ -159,6 +220,15 @@ scope, `.claude/skills/`.* Untested: `.github/skills/`, VS Code Copilot Chat, Co
 review, and the Skills API path — which is the strictest validator and the one never probed.
 Re-test before relying on this if the Skills API becomes a target.
 
+**This is now the package's own shipping path, so the gap is no longer hypothetical.** The
+skill moved to `.github/skills/` after that probe, and Copilot's documented frontmatter set is
+`name`, `description`, `license` and `allowed-tools` — `metadata` appears in none of it. The
+observation above says an author-written `metadata:` block was tolerated on one surface at one
+version; it is not evidence that every surface tolerates it. If a Copilot surface ever rejects
+or mangles the skill, `metadata:` is the first thing to suspect and the cheapest to drop —
+nothing in the package reads it at run time, and `corpus_version` is authoritative in
+`references/rules.md` regardless.
+
 ---
 
 ## The line budget, and why this file is never re-flowed
@@ -168,7 +238,7 @@ Code's *documented guidance*, not a host limit enforced by either host — nothi
 it, and both hosts discover and list the skill at whatever length it is. Trading something the
 author asked for against a cosmetic budget is the wrong direction, so the budget gives, and it
 has gone on giving as the file grew. No check enforces a length and none is wanted, so no figure
-is written here: run `wc -l .claude/skills/devcontainers/SKILL.md` if you need the number.
+is written here: run `wc -l .github/skills/devcontainers/SKILL.md` if you need the number.
 
 **No safe reflow ever closed the gap**, and this was measured rather than assumed — back when the
 gap was two lines, the smallest it has ever been. Of the 37 paragraphs in the file that could ever
@@ -263,14 +333,14 @@ travels with the decision record, and CI (`.github/workflows/checks.yml`) runs t
 ```sh
 # 1. Portability — must print nothing.
 grep -nE '^\s*!`|```!|\$ARGUMENTS|\$\{CLAUDE_' \
-  .claude/skills/devcontainers/SKILL.md \
-  .claude/skills/devcontainers/references/*.md \
+  .github/skills/devcontainers/SKILL.md \
+  .github/skills/devcontainers/references/*.md \
   && echo "FAIL: host-specific syntax" || echo "OK"
 ```
 
 ```sh
 # 2. Rule-field counting — every field must print 12.
-R=.claude/skills/devcontainers/references/rules.md
+R=.github/skills/devcontainers/references/rules.md
 awk '/^```/{f=!f; next} !f' "$R" | grep -c '^### DC-'
 for fld in Severity Tier Source Quote Verified Inputs Detect Fix; do
   printf '%-9s %s\n' "$fld" \
@@ -300,7 +370,7 @@ verify.**
 
 ```sh
 # 3. Version agreement — the two files must not drift.
-S=.claude/skills/devcontainers/SKILL.md
+S=.github/skills/devcontainers/SKILL.md
 SV=$(sed -n 's/^[[:space:]]*corpus_version:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' "$S")
 RV=$(sed -n 's/^corpus_version:[[:space:]]*//p' "$R")
 [ "$SV" = "$RV" ] && echo "OK $SV" || echo "FAIL: SKILL=$SV rules=$RV"
@@ -669,7 +739,7 @@ that checks it:
 
 ```sh
 grep '^corpus_version:' upstream/.generated-from
-grep '^corpus_version:' .claude/skills/devcontainers/references/rules.md
+grep '^corpus_version:' .github/skills/devcontainers/references/rules.md
 # they must match; on mismatch the projection is stale, not merely old
 ```
 
@@ -884,15 +954,23 @@ Stated so nobody is surprised by an absence:
 - `upstream/awesome-copilot-devcontainers.instructions.md` — the unsubmitted
   `github/awesome-copilot` payload and the project's only sanctioned prose projection of the
   corpus; see the section above for why it is allowed and what it obliges.
-- `tools/wf-preflight.mjs` — unrelated to the skill; validates a Claude Code Workflow script
-  before invocation, catching the failure mode where a markdown backtick inside a
-  backtick-delimited prompt silently closes the template literal and the parser blames the
-  next word.
-- Shared project instructions live once, in `AGENTS.md`; `CLAUDE.md`, `GEMINI.md`, `QODER.md`,
-  `.windsurfrules` and `.kiro/steering/` are symlinks to it, and `.cursorrules` is a deliberate
-  subset. These predate the skill and are workspace configuration, not part of the shipped
-  package. The MCP configs (`.mcp.json`, `.vscode/`, `.cursor/`, `.kiro/`, `.qoder/`,
-  `.opencode.json`) hardcode an absolute `cwd`; update it if you clone this elsewhere.
+- `.github/copilot-instructions.md` and `.github/prompts/` — Copilot-native routing surfaces.
+  The instructions file is always-on and points at the skill; the three prompt files give
+  Copilot users `/devcontainer-audit`, `/devcontainer-author` and `/devcontainer-debug`, each
+  invoking one of the skill's modes. **All of them are routing only.** They restate no rule,
+  severity or default, for the same reason `.github/instructions/` does not: a second copy of
+  a rule is a second source of truth with no citation invariant behind it. Their mechanism is
+  no better proven than the instructions pointer's — nothing here has measured whether a
+  prompt file reliably pulls the skill's references in.
+- Shared project instructions live once, in `AGENTS.md`, which Copilot reads directly;
+  `CLAUDE.md` is a symlink to it. Workspace configuration, not part of the shipped package.
+
+**Removed, and recoverable from git history.** This repository previously carried instruction
+files, MCP configs and helper skills for Gemini, Qoder, Cursor, Kiro, Windsurf and OpenCode; a
+`code-review-graph` MCP server with hooks on two hosts; `tools/wf-preflight.mjs`, a Workflow-
+script linter unrelated to the skill; and the `.superpowers/` build-session artefacts. All were
+dropped when the package narrowed to Copilot and Claude Code. `docs/ARCHITECTURE-REVIEW.md`
+describes that older shape and is kept as a superseded record.
 
 ---
 

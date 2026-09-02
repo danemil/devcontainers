@@ -1,6 +1,3 @@
-# Added by code-review-graph
-.code-review-graph/
-
 # Gate D corpus: reproducible from docs/gates/gate-d.md, not committed.
 # The harvest directory is ignored EXCEPT the two scripts and the deduplicated
 # hit list, which are the expensive-to-recreate inputs (see README, "Also in

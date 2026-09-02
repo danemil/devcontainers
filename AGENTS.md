@@ -1,27 +1,35 @@
 # AGENTS.md
 
-Project instructions for every agent host. `CLAUDE.md`, `GEMINI.md`, `QODER.md`, `.windsurfrules`
-and `.kiro/steering/code-review-graph.md` are symlinks to this file; edit only this one.
+Project instructions for GitHub Copilot and Claude Code. `CLAUDE.md` is a symlink to this file;
+edit only this one. Copilot reads `AGENTS.md` directly, on every surface that supports agent
+instructions.
 
 ## What this repository is
 
-A single portable agent skill, `.claude/skills/devcontainers/`, that Claude Code and GitHub
-Copilot read **from the same bytes**. No build step, no generator, no tests in the usual sense:
+A single portable agent skill, `.github/skills/devcontainers/`, that GitHub Copilot and Claude
+Code read **from the same bytes**. No build step, no generator, no tests in the usual sense:
 the product is three markdown files, and correctness is enforced by greps, hand-run prompts and
 an evaluation gate. `README.md` is the decision record — every claim below is argued there; read
 the matching section before changing the thing it governs.
 
 ```
-.claude/skills/devcontainers/
+.github/skills/devcontainers/        # canonical — Copilot's own project-skill location
 ├── SKILL.md                  # three modes (AUDIT / AUTHOR / DEBUG), refusals, audit procedure
 └── references/
     ├── rules.md              # the twelve cited rules — the ONLY place rule content lives
     └── spec-facts.md         # mechanics; loaded in AUTHOR and DEBUG, NOT in AUDIT
+
+.claude/skills/devcontainers -> ../../.github/skills/devcontainers   # symlink, for Claude Code
 ```
 
+**The symlink is the whole portability mechanism, and its direction is deliberate.** Copilot
+discovers project skills in `.github/skills/`, `.claude/skills/` or `.agents/skills/`; Claude
+Code discovers them only in `.claude/skills/`. Canonical therefore lives at the Copilot-native
+path, and Claude Code reaches the identical bytes through the link. Never turn the link into a
+second real copy — that is the "same bytes" invariant, and nothing checks it for you.
+
 Everything else is workspace configuration or evidence: `docs/` (research brief, cached primary
-sources, gate results, `plans/RESUME.md` handoff), `upstream/` (an unsubmitted awesome-copilot
-payload), `tools/wf-preflight.mjs` (unrelated to the skill — see below).
+sources, gate results, `plans/RESUME.md` handoff), `upstream/` (an awesome-copilot payload).
 
 ## Checks to run after any edit to the skill
 
@@ -40,7 +48,8 @@ invariant" and check 6's under "The verification harness this package specifies"
 `label-safe` bullet; check 7 is argued in both places — the runnable form under "Body
 portability", the reason it exists in the `Inputs` bullet beside `label-safe`. The script is
 the only executable copy, and `.github/workflows/checks.yml` runs it with the tool tests on
-every push.
+every push. The checker reads the canonical `.github/skills/` path; it never reads through the
+`.claude/` symlink, so a symlink replaced by a stale copy would not be caught by it.
 
 The `awk` fence-strip inside the rule-field check is load-bearing: `rules.md` documents its own
 rule template inside a fenced block, and without the strip every count silently reads 13.
@@ -74,14 +83,17 @@ actually controls; `README.md` carries the measurement.
   regenerate it from `rules.md` and bump `upstream/.generated-from` whenever the corpus changes.
 - **`.github/instructions/devcontainers.instructions.md` stays contentless.** It is a pointer
   whose mechanism is unproven; adding a rule, default, severity or example to it is a
-  review-blocking change.
+  review-blocking change. The same rule binds `.github/prompts/*.prompt.md` and
+  `.github/copilot-instructions.md`: they route to the skill and carry no rule content.
 - **Two versions, not one.** `metadata.version` in `SKILL.md` is the package; `corpus_version`
   (authoritative in `rules.md`, mirrored in the frontmatter) is the rule corpus, and it bumps
   independently. A `Detect` edit that changes what the corpus emits for an unchanged config is a
   **minor** corpus bump, however small it looks, and re-runs Gate E's "safe to follow" fixtures.
 - **Frontmatter is four top-level keys**: `name`, `description`, `license`, `metadata`. Author,
   email and versions go *inside* `metadata`. `allowed-tools` is deliberately omitted because its
-  value grammar differs per host.
+  value grammar differs per host. Of the four, Copilot documents `name`, `description` and
+  `license`; `metadata` is a Claude Code extension that Copilot ignores. Keep `name` lowercase
+  and matching the directory — Copilot requires that, and requires the file be named `SKILL.md`.
 - **Rule IDs are a published interface.** Never reuse one; a retired rule keeps its ID and gains
   `superseded_by`. Every finding line prints the tier: `DC-XXX-NNN [SPEC|OPINION] SEVERITY …`.
 - **Every rule needs `Source` (URL), `Quote` (verbatim, under 300 chars) and `Verified` (date).**
@@ -96,60 +108,11 @@ actually controls; `README.md` carries the measurement.
 
 ## Workspace configuration
 
-- `AGENTS.md` is the single source of project instructions; `CLAUDE.md`, `GEMINI.md`, `QODER.md`,
-  `.windsurfrules` and `.kiro/steering/code-review-graph.md` are symlinks to it. `.cursorrules`
-  is a deliberate subset (the MCP section only) and stays a real file. On Windows, clone with
-  `core.symlinks=true` or the five links check out as one-line text files.
-- `.mcp.json`, `.vscode/mcp.json`, `.cursor/mcp.json`, `.kiro/settings/mcp.json`,
-  `.qoder/mcp.json`, `.opencode.json` and `.gemini/settings.json` hardcode an absolute `cwd` for
-  `code-review-graph` in their MCP server block; update it if the repo is cloned elsewhere.
-  `.claude/settings.json`'s hooks use `${CLAUDE_PROJECT_DIR:-$PWD}`, and `.gemini/settings.json`'s
-  hooks run `.gemini/hooks/crg-session-start.sh` / `crg-update.sh`, which resolve the repo with
-  `git rev-parse --show-toplevel` — both resolve the path at run time and no longer need updating
-  on clone. `.qoder/settings.json` is the one file whose hook commands still hardcode the path;
-  it was left as-is on purpose, outside this plan's scope. The graph is near-empty here (markdown
-  is not indexed), so the section below is of limited use in this repo.
+- `AGENTS.md` is the single source of project instructions and `CLAUDE.md` is a symlink to it.
+  On Windows, clone with `core.symlinks=true` or `CLAUDE.md` and `.claude/skills/devcontainers`
+  check out as one-line text files — which for the skill link means Claude Code silently sees
+  no skill at all.
+- `.github/copilot-instructions.md` and `.github/prompts/*.prompt.md` are Copilot-native
+  surfaces that route to the skill. Like `.github/instructions/`, they stay contentless of rules.
 - `docs/sources/devcontainer.md` is gitignored on purpose: a cached third-party docs page kept
   for offline citation checks but not redistributed. `DC-CLAUDE-001` cites the live URL.
-- `tools/wf-preflight.mjs` validates a Claude Code Workflow script before invocation:
-  `node tools/wf-preflight.mjs <script.js>`. It catches a markdown backtick inside a
-  template-literal prompt closing the string early; the fix is prose in double-quoted lines.
-
-<!-- code-review-graph MCP tools -->
-## MCP Tools: code-review-graph
-
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
-the codebase.** The graph is faster, cheaper (fewer tokens), and gives
-you structural context (callers, dependents, test coverage) that file
-scanning cannot.
-
-### When to use graph tools FIRST
-
-- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
-- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
-- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
-- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
-- **Architecture questions**: `get_architecture_overview` + `list_communities`
-
-Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
-
-### Key Tools
-
-| Tool | Use when |
-| ------ | ---------- |
-| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
-| `get_review_context` | Need source snippets for review — token-efficient |
-| `get_impact_radius` | Understanding blast radius of a change |
-| `get_affected_flows` | Finding which execution paths are impacted |
-| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes` | Finding functions/classes by name or keyword |
-| `get_architecture_overview` | Understanding high-level codebase structure |
-| `refactor_tool` | Planning renames, finding dead code |
-
-### Workflow
-
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes` for code review.
-3. Use `get_affected_flows` to understand impact.
-4. Use `query_graph` pattern="tests_for" to check coverage.
