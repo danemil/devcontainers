@@ -984,3 +984,456 @@ Two qualifications, stated rather than used to argue the result away:
   conjunct short-circuits on Copilot at 0.3.0. Prose has been tried twice. The next attempt
   should be mechanical or the behaviour should be accepted and documented as a known
   surface-dependent limitation.
+
+---
+
+# ROUND 4 — the Inputs lever, against corpus 0.4.0
+
+**Everything above this line is rounds 1, 2 and 3, against corpora `0.1.0`, `0.2.0` and
+`0.3.0`, and is left exactly as it was written.** Round 3 closed with a measurement rather than
+a gap: the availability conjunct short-circuits on Copilot, prose had been tried twice, and the
+next lever had to be mechanical or the behaviour had to be accepted and documented. This round
+is that lever, and the round it produced.
+
+## The outcome against the pre-registered criterion, before any interpretation
+
+The criterion, quoted from `task-4-brief.md` without alteration:
+
+> **PASS** iff all of: (a) among copilot AUDIT runs where the skill fired, ≥ 5 of 6 (or the
+> equivalent proportion if fewer fire — state the denominator) emit `read:` evidence lines in
+> the clean bucket and file **zero** rules as "checked, no finding" whose inputs the trace shows
+> unread; (b) claude stays 9 of 9 on both; (c) HARM = 0 against the reused round-3 control;
+> (d) the set of rule IDs in finding lines per fixture is identical to round 3's WITH runs on
+> the same surface (finding set unchanged by a non-Detect bump) — any difference is reported
+> line by line.
+
+```
+(a) FAIL (proportional reading; PASS under the literal-count reading)   5 of 7
+(b) PASS                                                               9 of 9, 9 of 9
+(c) PASS                                                               HARM = 0
+(d) FAIL                                                               3 differences, all improving
+```
+
+**Outcome: FAIL.** The criterion is a conjunction, and **(d) fails outright**, so the outcome
+does not depend on how (a) is resolved. Per the plan's FAIL branch, the residual behaviour is
+documented as a surface-dependent limitation and there is no third prose round.
+
+### (a) — the denominator, the count, and the two readings
+
+**Denominator: 7.** Seven Copilot runs fired and produced an AUDIT report (T01, T02, T03, T07,
+T08b, T11, T12). More fired than the criterion's 6, not fewer, so the parenthetical's
+"if fewer fire" clause does not literally apply.
+
+| Run | Emitted `read:` in the clean bucket | Zero rules clean with unread inputs | Passes (a) |
+| --- | --- | --- | --- |
+| T01 | vacuous — clean bucket empty | yes | **yes** |
+| T02 | vacuous — clean bucket empty | yes | **yes** |
+| T03 | vacuous — clean bucket empty | yes | **yes** |
+| T07 | **yes** | **no** (`DC-USER-001`) | **no** |
+| T08b | vacuous — clean bucket empty | yes | **yes** |
+| T11 | **yes** | **no** (`DC-USER-001`) | **no** |
+| T12 | vacuous — clean bucket empty | yes | **yes** |
+
+**5 of 7 = 71.4%.** Two readings, both recorded rather than resolved in the package's favour:
+
+1. *Does an empty clean bucket satisfy "emit `read:` evidence lines in the clean bucket"?*
+   Read as **yes, vacuously** — the lever's purpose is that nothing is filed clean without named
+   evidence, and a run that files nothing clean has violated nothing; round 3 treated Claude's
+   five zero-clean-bucket runs as correct behaviour, so this is the reading consistent with the
+   prior round. **Under the opposite reading the count is 0 of 7**, because the conjunction
+   requires both halves and the only two runs that emit `read:` lines are exactly the two that
+   fail the zero-unread-clean half. (a) fails harder, not differently.
+2. *With 7 firing rather than 6, is the bar "≥ 5 runs" or "≥ 83.3%"?* Read as **the proportion**,
+   because the criterion states a rate and supplies an explicit proportion-adjustment clause, so
+   7 firing requires ≥ 6. **5 of 7 fails.** Under the literal-count reading, 5 ≥ 5 and (a) passes.
+
+### (b) — PASS
+
+Claude fired **9 of 9** and was **CORRECT 9 of 9**. Zero rules filed clean with unread inputs,
+zero Feature-rule-clean, zero hallucinated evidence, zero confidently-wrong answers.
+
+### (c) — PASS
+
+**HARM = 0** against the reused round-3 control. No task on either surface where round-4 WITH is
+worse than round-3 WITHOUT.
+
+### (d) — FAIL
+
+Three rule-ID-set differences on the Copilot surface (T02, T07, T12), reported line by line
+below. Claude is unchanged. Two Copilot cells (T01, T03) cannot be compared at all, because
+round 3 did not record per-fixture rule IDs for them.
+
+## The criterion itself was not a well-formed test, and that is a finding
+
+Sub-criterion (d) required the finding set to be **identical** to round 3's. It was
+pre-registered, it is recorded as failed, and it is **not** rewritten after the fact. But the
+defect in it is worth stating, because it is a finding about the criterion rather than about the
+package: **a lever whose whole purpose is to make the model read more inputs necessarily changes
+what can be found.** Every cell is n=1 with stochastic firing, so a (d) that could pass would be
+a (d) in which the lever did nothing. The next round's criterion needs a directional test —
+no new false positive, no lost true positive — not an identity test.
+
+## What the lever was
+
+The round-3 fix was a procedural instruction. This one is an output requirement whose content is
+copied from the corpus: every rule in `references/rules.md` now carries an `Inputs:` line, and
+AUDIT requires each "checked, no finding" tally entry to carry `read:` evidence naming every
+input on that line. `tools/check-inputs.mjs` (check 5) derives the not-label-storable list and
+the rules' properties at runtime and asserts the coverage rather than trusting a copy.
+
+**No corpus regression is indicated, and it was checked rather than assumed.** The branch's diff
+to `references/rules.md` touches `corpus_version`, the twelve `Inputs` lines and the template's
+`Inputs` line, and **no `Detect`, `Fix`, `Severity`, `Tier`, `Quote` or `Source` line at all.**
+All three Copilot finding-set differences below are improvements: two rules newly found because
+the skill fired where it did not before, one round-3 false positive gone.
+
+## What moved, and what did not
+
+**It moved Copilot, and it moved it a lot.**
+
+- The round-3 procedural step went from **0 of 6** Copilot runs to **7 of 7** here.
+- The exact Task 10 case — a Feature rule filed "checked, no finding" without opening a
+  `devcontainer-feature.json` — went from **2 of 6** to **0 of 7**. It did not occur once.
+- Rules filed clean with unread inputs went from **4 of 6 runs** to **2 of 7 runs**, and within
+  those two from *no* evidence to *named, trace-corroborated but incomplete* evidence.
+- Copilot's `DC-USER-001` probe (T12) — WRONG and unfired in round 3 — fired and was CORRECT,
+  and said in its own words that it read the CI workflow "since it directly bears on one rule's
+  evidence requirement".
+- **Hallucinated evidence, the failure mode this lever could plausibly have introduced: 0 of 18.**
+
+**It did not move it everywhere, and one cell moved backwards.**
+
+- **2 of 7 runs still file `DC-USER-001` into "checked, no finding"** on an evidence line that
+  omits `containerUser` and omits the conditionally-required image metadata label — which no run
+  in the entire round pulled.
+- **T11 is a regression.** It was clean in round 3 — nothing at all in its clean bucket — and it
+  is unread-clean now. **On the five fixtures common to both rounds the count is 4 of 5 → 2 of
+  5**, not the aggregate's 4 of 6 → 2 of 7. The mechanism matters more than the cell: the
+  evidence format gave the model a way to justify a clean-bucket entry, and on this fixture that
+  made it willing to file one it had previously declined to file. **An evidence format lowered
+  the bar to entry where it was meant to raise it.** That is a genuine cost of the lever and the
+  thing a further lever would have to avoid.
+
+## Method
+
+Scratch tree `/tmp/gate-e4`, **never this repository and never the worktree**. Per-task fixtures,
+a **copy** of `.claude/skills/devcontainers/` (all three files) and the same five decoys
+(`changelog`, `sql-review`, `terraform-modules`, `gha-workflows`, `api-docs`). Fresh working
+directory and fresh session per run; the skills are re-copied into each run directory, so no
+skill body persists between runs.
+
+**Scope: nine tasks, WITH arm only, both surfaces. 18 runs attempted, 18 completed, all exit 0.**
+Copilot wall clock 878 s; claude 1 130 s. Every stderr file is empty.
+
+```bash
+claude -p "$(cat prompts/<task>.txt)" --output-format stream-json --verbose \
+  --strict-mcp-config --mcp-config '{"mcpServers":{}}' --permission-mode bypassPermissions
+copilot -p "$(cat prompts/<task>.txt)" --allow-all-tools --no-color --disable-builtin-mcps \
+  --output-format json --log-level none
+```
+
+Claude Code **2.1.258** · GitHub Copilot CLI **1.0.82**. (Round 3 ran Claude Code 2.1.257; the
+patch bump is recorded as an uncontrolled difference, not corrected for.)
+
+**Skills offered, read off the session-init event rather than assumed:** `claude -p` **328**;
+`copilot -p` **149** — identical to round 3 on both surfaces, on every run.
+
+**Skill checksums identical before and after the run set** — `SKILL.md`
+`4869eee2ebf2b59012e5f2d0f5971b1b6da3b80d`, `rules.md`
+`4988d984ebb5fe76225bb7a2f6c7be7f9c3e6c72`, `spec-facts.md`
+`33229491320673eeba88ce395f758fe531bb7bc1`. The before-file was archived; **no
+`skill-checksums-after.txt` was written** — the after values were recomputed in the shell and
+re-verified during the verification pass. Archiving the after-file is the cheap fix for a future
+round.
+
+**Contamination: 0 of 18.** Every raw trace swept for `Users/emildan/work/devcontainers`,
+`danemil`, `GATE-RESULTS`, `usefulness` — **0 hits on all four**, and 0 on round 3's two benign
+secondary strings (`RESEARCH-BRIEF`, `docs/sources`) as well. No run reached the research.
+
+### The round's own weaknesses, disclosed where round 3 disclosed its equivalents
+
+1. **The control is reused and non-contemporaneous.** No WITHOUT run was executed in round 4;
+   round 3's WITHOUT cells are the control. This is pre-registered in the task brief, but it
+   means HARM is computed against a control that is n=1, from a different day, and from a
+   different Claude Code patch version.
+2. **Network isolation was weaker than the flags imply, on BOTH surfaces, and on neither surface
+   did the flags do the blocking.** `--disable-builtin-mcps` does not disable Copilot's own
+   `web_search` / `web_fetch`: `t07_copilot_with` issued one `web_search` and two `web_fetch`
+   calls against upstream `devcontainers/images` documentation and **they succeeded** (round 3
+   had the same exposure). On the claude surface `t07_claude_with` attempted egress too — a
+   `WebFetch` and a `curl` of the MCR tags list — and **both were blocked by the operator's local
+   `context-mode` PreToolUse hook**, a plugin unrelated to this experiment, not by
+   `--strict-mcp-config --mcp-config '{"mcpServers":{}}'`. Nothing either surface fetched was
+   this repository and the sweep is clean, but the honest statement is that the isolation flags
+   prevented egress on neither surface.
+3. **The claude arm did not run in a clean room.** `--strict-mcp-config` did work — every claude
+   trace's init event carries `mcp_servers: []` — but it does not disable hooks, plugins, skills
+   or slash commands. All nine claude traces carry eight `SessionStart:startup` hook responses
+   injecting `additionalContext`, including an auto-resume block and a full
+   `superpowers:using-superpowers` skill body, and name the operator's `context-mode` plugin 87
+   times per trace (121 in `t07_claude_with`). None of it mentions dev containers and no run
+   acted on the auto-resume instruction; it is almost certainly constant with round 3, which ran
+   on the same machine and configuration, so the comparison stands. **But it is not a
+   clean-room baseline and is not described as one.**
+4. **Four runs tried to escape the scratch tree; all four were blocked.** `t03_copilot_with`,
+   `t05_copilot_with`, `t07_copilot_with` and `t10_copilot_with` each issued a root-scoped `find`
+   as an early tool call. The Copilot sandbox returned *"Permission denied and could not request
+   permission from user"* to all four (`success: false`, `code: "denied"`) and nothing ran.
+5. **T05 on Copilot is a firing regression** — it fired in round 3 and did not here. See the
+   firing figures below.
+6. **Every cell is n=1**, in all four rounds. Read the aggregate.
+7. **T08b carries the same known fixture defect as round 3** — `forwardPorts: [3000, 5432]` and
+   `npm run db:seed` with no database service. Round 3 excluded repo-level observations about
+   the fixture from grading on both arms; round 4 keeps that precedent so the two rounds are
+   comparable.
+8. **The copilot arm ran first, complete, then claude.**
+9. **An operator error during setup, and how it was handled.** The first launch of the copilot
+   arm left a detached loop running and a second loop raced it on two run directories. All
+   processes were killed, `raw/`, `runs/` and `inventory.txt` were deleted, and the arm was
+   restarted from scratch as a single loop. **No output from the raced runs is in this file or
+   in the archived traces.**
+10. **VS Code agent mode remains unmeasured** and the `.github/instructions/` pointer remains
+    untested — in all four rounds.
+
+## Round 4 results
+
+`W` = round-4 WITH. `WO` = round-3 WITHOUT, reused. **Firing is measured off the tool trace,
+never the answer text.**
+
+| Task | claude W | claude WO | copilot W | copilot WO | lift | harm |
+| --- | --- | --- | --- | --- | --- | --- |
+| T01 prebuild / `postCreateCommand` | CORRECT (fired) | CORRECT | CORRECT (fired) | CORRECT | — | no |
+| T02 `${localEnv:}` vs literal | CORRECT (fired) | CORRECT | CORRECT (fired) | CORRECT | — | no |
+| T03 `waitFor` enum | CORRECT (fired) | CORRECT | CORRECT (fired) | **WRONG** | **yes** (copilot) | no |
+| T05 volume `chown` | CORRECT (fired) | CORRECT | CORRECT (**did not fire**) | CORRECT | — | no |
+| T07 deprecated top-level keys | CORRECT (fired) | CORRECT | CORRECT (fired) | CORRECT | — | no |
+| T08b clean config (FP control) | CORRECT (fired) | PARTIAL | CORRECT (fired) | PARTIAL | **yes** (both) | no |
+| T10 object-form `postCreateCommand` | CORRECT (fired) | CORRECT | CORRECT (**did not fire**) | CORRECT | — | no |
+| T11 low-entropy secret probe | CORRECT (fired) | CORRECT | CORRECT (fired) | CORRECT | — | no |
+| T12 CI pins `--image-name` probe | CORRECT (fired) | **WRONG** | CORRECT (fired) | **WRONG** | **yes** (both) | no |
+
+```
+claude   W  9 CORRECT / 0 PARTIAL / 0 WRONG   = 9 of 9 CORRECT
+claude   WO 7 CORRECT / 1 PARTIAL / 1 WRONG   = 7 of 9 CORRECT   (PARTIAL T08b, WRONG T12)
+copilot  W  9 CORRECT / 0 PARTIAL / 0 WRONG   = 9 of 9 CORRECT
+copilot  WO 6 CORRECT / 1 PARTIAL / 2 WRONG   = 6 of 9 CORRECT   (PARTIAL T08b,
+                                                                  WRONG T03 and T12)
+Overall  W 18 of 18 CORRECT      vs      WO 13 of 18 CORRECT
+
+HARM = 0 tasks. LIFT = 3 of 9 tasks (T03 copilot, T08b both, T12 both), all attributable —
+the skill fired in every lifting cell.
+```
+
+**T12 is the sharpest change in the round.** In round 3, copilot WITH was WRONG and the skill did
+not fire; it never opened `.github/workflows/` and asserted "No non-root/least-privilege concerns
+— `remoteUser: node` is fine" over the exact area carrying the defect. In round 4 the skill
+fires, the run reads the workflow *because the rule's `Inputs` line told it to*, and it files the
+finding.
+
+**Confidently wrong answers in the WITH arm: 0**, on both surfaces, fourth round running. No
+blanket all-clear was emitted by any run — including the two Copilot runs that did not fire,
+which answered narrowly and made no green-sounding claim over unexamined areas, unlike round 3's
+two.
+
+### FIRING RATE (WITH arm, per surface)
+
+| Surface | Round 4 | Round 3 (same nine tasks) |
+| --- | --- | --- |
+| `claude -p` | 9 of 9 = **100%** | 9 of 9 = 100% |
+| `copilot -p` | **7 of 9** | 6 of 9 |
+| VS Code agent mode | not run | **unmeasured** |
+
+**The net +1 on Copilot is three changes, not one.** Round 3 fired on T01, T03, T05, T07, T08b
+and T11 of this set and missed T02, T10 and T12. **T02 and T12 gained; T05 was lost.** T05 is a
+firing regression and the +1 framing hides it. Round 3's whole-set figure was 8 of 12 and is not
+comparable to a nine-task round; the matched nine is the figure that is.
+
+## The availability conjunct — measured again, on the same three tables
+
+Denominators: **7 Copilot AUDIT runs where the skill fired** (T01, T02, T03, T07, T08b, T11,
+T12) and **9 Claude AUDIT runs where the skill fired** (all nine; T10's claude run declared AUDIT
+mode explicitly, scoped to one property, and is counted). T05 and T10 on copilot did not fire and
+produced no report, so they are excluded rather than counted as failures. Round 3's denominators
+were 9 claude / 6 copilot.
+
+### Table 1 — performed the input-check visibly, before bucketing
+
+Bar, as in round 3: the report shows, per rule, the input-availability judgement that decided the
+bucket — the input is named and marked read or not read.
+
+| | claude | copilot |
+| --- | --- | --- |
+| **Round 4** | **9 of 9** | **7 of 7** |
+| Round 3 | 9 of 9 | **0 of 6** |
+
+**This is the row that went from 0 to full.** Every Copilot AUDIT report in round 4 gives a
+per-rule reason naming the specific unread input — "github-cli's `devcontainer-feature.json` not
+fetched; resolved order not queried", "`waitFor` absent from file; label could supply an invalid
+value", "image not pulled". Three of the seven use the `SKILL.md` reconciliation language
+verbatim.
+
+Stricter bar, stated because it is the bar the criterion's letter implies — *every* input on
+*every* rule's `Inputs` line enumerated and marked: **0 of 7 copilot and 0 of 9 claude.** Both
+surfaces give a one-line decisive reason per rule, not a full enumeration. Round 3 scored claude
+9 of 9 under the looser bar, so the looser bar is the comparable one and is what the table
+reports.
+
+### Table 2 — something in "checked, no finding" whose inputs it had not read
+
+| | claude | copilot |
+| --- | --- | --- |
+| **Round 4** | **0 of 9** | **2 of 7** (T07, T11) |
+| Round 3 | 0 of 9 | **4 of 6** (T01, T03, T07, T08b) |
+
+**Table 2b — the matched subset, and the one cell that moved the wrong way.** The aggregate above
+compares different denominators and it conceals a per-cell regression. Five runs are common to
+both rounds; T05 fired in round 3 and not in round 4, T02 and T12 the reverse.
+
+| Fixture | Round 3 copilot | Round 4 copilot | Direction |
+| --- | --- | --- | --- |
+| T01 | **unread-clean** | clean bucket empty | **fixed** |
+| T03 | **unread-clean** | clean bucket empty | **fixed** |
+| T07 | **unread-clean** (5 rules) | **unread-clean** (1 rule, `DC-USER-001`, with a `read:` line) | improved, not fixed |
+| T08b | **unread-clean** (`DC-FEAT-002`) | clean bucket empty | **fixed** |
+| T11 | clean — nothing in the clean bucket | **unread-clean** (`DC-USER-001`, with a `read:` line) | **REGRESSED** |
+
+**Matched-subset count: 4 of 5 → 2 of 5.** Three of round 3's four failures are gone outright and
+the fourth improved. **T11 moved the wrong way, and it moved the wrong way because of this
+lever** — see "What moved, and what did not" above.
+
+### Table 3 — a Feature rule in "checked, no finding" with no `devcontainer-feature.json` read — the exact Task 10 case
+
+| | claude | copilot |
+| --- | --- | --- |
+| **Round 4** | **0 of 9** | **0 of 7** |
+| Round 3 | 0 of 9 | **2 of 6** (T03, T08b) |
+
+**Zero.** The case the lever was built for did not occur. Claude's two clean-bucket entries are
+both `DC-FEAT-002` on fixtures that declare no `features` at all (T05, T11), so no Feature
+manifest exists to read and the entry says so. Copilot filed Feature rules `not applicable` on
+the three fixtures with no `features` key (T02, T03, T11) and `not checked` on the three that
+have one — T01, T08b and T12 — naming the unfetched manifest each time.
+
+### Table 4 — hallucinated evidence
+
+A `read: <input> (<where>)` claim with no corresponding read in the tool trace.
+
+| | claude | copilot | total |
+| --- | --- | --- | --- |
+| Runs emitting a clean-bucket `read:` line | 2 (T05, T11) | 2 (T07, T11) | 4 |
+| Individual `read:` inputs claimed | 6 | 8 | 14 |
+| **Claims with no matching read in the trace** | **0** | **0** | **0** |
+
+**Hallucinated evidence: 0.** Every claim is backed by a tool call in the same trace.
+
+**No run in the entire round pulled an image or read a `devcontainer.metadata` label** — checked
+across all 18 traces for `docker pull`, `docker inspect`, `oras` and `skopeo`. One run probed:
+`t12_claude_with` ran `docker info` and `docker image inspect`, was told the image is not present
+locally, and did not pull — it said so in its report rather than claiming otherwise. So a claim
+to have read the label would have been detectable in every trace, and none was made.
+
+## What is still wrong on Copilot, precisely
+
+Two runs — `t07_copilot_with` and `t11_copilot_with` — file `DC-USER-001` under "checked, no
+finding" with a `read:` line. Both lines are honest about what they read. Both are **incomplete
+against the rule's own `Inputs` line**, in the same two ways: `containerUser` is not named at
+all, and — because `updateRemoteUserUID` and `containerUser` are both absent from the file, so
+the conditional label clause holds — the image metadata label is an input for these configs and
+was not read. Six lines later the same report says the image was not pulled.
+
+**The matched contrast is exact.** On the same two fixtures, `t07_claude_with` and
+`t11_claude_with` file `DC-USER-001` under `not checked` with the reason *"updateRemoteUserUID
+and containerUser absent — label not read"*. The residual divergence between the surfaces is now
+one rule, one conditional clause, and it is a **partial-enumeration** failure rather than round
+3's **no-enumeration** failure. Copilot is now writing evidence lines; it is not yet checking
+them against the full `Inputs` list before choosing the bucket.
+
+## Finding-set comparison against round 3's WITH runs
+
+**A limitation first:** round 3 recorded finding-line *counts* in aggregate and named rule IDs
+only where they carried a conclusion. Two Copilot cells (T01, T03) have no per-fixture rule ID
+recorded in round 3, so for those two the comparison is **unavailable**, not "identical".
+
+**Claude — unchanged.** Every task's rule-ID set matches round 3. Two form differences and no
+rule-ID difference: T10 moved from a DEBUG-mode citation to an AUDIT-mode formal finding line,
+and T11 emits two `DC-SEC-001` lines where round 3 emitted one.
+
+**Copilot — three differences, all in the improving direction.**
+
+| Task | Round 3 | Round 4 | Difference |
+| --- | --- | --- | --- |
+| T01 | *(not recorded)* | `DC-LIFE-001` | **comparison unavailable** |
+| T02 | none — skill did not fire | `DC-SEC-001` | **DIFFERENT.** Attributable to firing. The added line is the true positive the task exists to test. |
+| T03 | *(not recorded)* | `DC-LIFE-002` | **comparison unavailable** |
+| T05 | zero formal finding lines (fired) | zero formal finding lines (did not fire) | same empty set, different reason |
+| T07 | `DC-DEP-001` + `DC-LIFE-001` | `DC-DEP-001` ×3 | **DIFFERENT.** `DC-LIFE-001` was round 3's single false positive. Round 4 files it `not applicable`, scope condition named. **The false positive is removed.** |
+| T08b | none | none | yes |
+| T10 | none (did not fire) | none (did not fire) | yes |
+| T11 | `DC-SEC-001` | `DC-SEC-001` ×2 | rule ID same; line count differs |
+| T12 | none — skill did not fire | `DC-USER-001` | **DIFFERENT.** Attributable to firing. Round 3's copilot cell was WRONG here. |
+
+**Criterion (d) is not met**, and it is not adjusted after the fact.
+
+### Finding-line audit
+
+**20 formal finding lines across the 16 runs that fired** — 9 copilot (T01 1, T02 1, T03 1,
+T07 3, T11 2, T12 1) and 11 claude (T01 1, T02 1, T03 1, T05 1, T07 3, T10 1, T11 2, T12 1).
+**False positives: 0 of 20.** No `DC-SEC-001` and no `DC-USER-001` false positive anywhere.
+
+| Round | Corpus | Tasks | Firing runs | Finding lines | False positives |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 0.1.0 | 10 | 18 | 16 | 4 (25%) |
+| 2 | 0.2.0 | 5 | 10 | 9 | 0 |
+| 3 | 0.3.0 | 12 | 20 | 18 | 1 (5.6%), self-caveated |
+| **4** | **0.4.0** | **9** | **16** | **20** | **0** |
+
+Rounds are not comparable on the raw line count — the task sets differ — but the false-positive
+rate is, and it is zero for the first time on a full-width round.
+
+## Other observations
+
+1. **Copilot's tally arithmetic is unreliable.** `t02_copilot_with` prints `not checked: 8` over
+   seven listed rules and `not applicable: 3` over four; `t11_copilot_with` prints `not
+   applicable: 3` and reconciles to 4 in the same block; `t07_copilot_with`'s `not checked: 6`
+   includes a cross-reference rather than a rule. The *bucket assignments* are sound in every
+   case and all reconcile to twelve rules; the *counts* beside them do not. No claude run has
+   this defect. A count that must equal the number of listed entries is the cheapest thing a
+   further mechanical lever could bind.
+2. **The `docker scout` row held — 16 of 16.** Docker was present on this host, so the
+   "installed but not run" state was exercised rather than merely documented.
+3. **`customizations.*` boundary — 0 violations in 18 runs.**
+4. **No run reported `spec-facts.md` missing**, consistent with round 3.
+5. **Tier tags:** every rule ID's first mention in every finding line on both surfaces carries
+   its tier. No leak observed in this task set.
+
+## The decision this round produces
+
+This round did not re-run the gate's ship rule and does not restate a verdict against it. It was
+a nine-task WITH arm measured against a reused control, not the twelve-task two-arm sweep round 3
+ran, so **the package's HOLD stands on round 3's evidence.** What round 4 adds to it: **LIFT = 3
+of 9 tasks, all attributable, HARM = 0, and 0 false positives among 20 finding lines.** What
+round 4 tested is the pre-registered criterion for the Inputs lever, and that criterion is
+**FAILED**.
+
+**Applying the plan's FAIL branch:** the residual behaviour is documented as a surface-dependent
+limitation in `SKILL.md` and `README.md`, and there is no third prose round. The limitation
+recorded is precisely what was observed and no more — **a Copilot AUDIT's "checked, no finding"
+entry may omit an input, characteristically the conditional image metadata label and a property
+the config does not set, so such an entry is a claim to check against the rule's `Inputs` line
+rather than a guarantee.** Round 3's blanket "treat the bucket as unreliable" is **not** the
+finding this round supports and is retired: 5 of 7 Copilot runs filed nothing clean at all, and
+the exact Feature-rule case that opened this debt did not occur once.
+
+### Carried forward — still open after four rounds
+
+- **VS Code agent mode is unmeasured** on every number in this file, in all four rounds.
+- **The `.github/instructions/` pointer is untested.**
+- **Every per-task cell is n=1**, and the control is now also non-contemporaneous.
+- **A criterion defect, new:** sub-criterion (d) was an identity test on a set the lever was
+  designed to change. A future round needs a directional test — no new false positive, no lost
+  true positive — not an identity test.
+- **Copilot's partial enumeration of `Inputs` lines**, on one rule and one conditional clause.
+  Prose has now been tried three times and an output requirement once. The next lever, if there
+  is one, binds a count rather than a wording — and must not repeat this round's own cost, where
+  giving the model a format for justifying a clean entry made one run willing to file an entry it
+  had previously declined to file.
