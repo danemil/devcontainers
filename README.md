@@ -22,22 +22,10 @@ plus three Copilot-native routing surfaces that carry no rule content —
 `.github/instructions/devcontainers.instructions.md` (a contentless pointer whose mechanism is
 **unproven** — see below), `.github/copilot-instructions.md`, and `.github/prompts/`.
 
-**Why `.github/skills/` and not `.claude/skills/`.** Copilot documents three project-skill
-locations — `.github/skills/`, `.claude/skills/` and `.agents/skills/`; Claude Code documents
-one, `.claude/skills/`. Either canonical path is therefore reachable by both hosts, one of them
-via a symlink. `.github/skills/` is canonical here because it is Copilot's own convention and
-because it is the path every Copilot gate below was *not* run from — see the caveat under
-"Install", which is the one thing this move puts at risk.
-
-**Status: Phase 1 ships, and the package has been evaluated as it actually ships.** That is a
-decision record, not a mood: Gate E was re-run in full against the current corpus — 48 runs,
-lift met, **harm 0** — and rounds 1 and 2 had both run with `references/spec-facts.md` absent,
-so this is the first evaluation of the shipped article rather than of a degraded one. The
-authoritative corpus version is the one `references/rules.md` declares; this file is not a
-third source of truth for it. Everything below distinguishes what was measured from what was
-assumed. Where a thing is unproven, this file says so — and two things still are: Copilot's
-selection rate is the gate's weakest number, and one design assumption was measured and
-**failed**. Both are stated under Gate E rather than left to a reader to notice.
+> **Using it?** Read **Install**, immediately below, and stop there.
+> **Auditing or maintaining it?** Everything from **The frontmatter contract** down is a
+> decision record: each invariant, and the measurement or argument it rests on. `AGENTS.md`
+> cites those sections by name, so read the matching one before changing what it governs.
 
 ---
 
@@ -85,6 +73,12 @@ If you check the skill into the repository you are working in, **nothing needs i
 native Project discovery sources; this repository ships to the first and links the second, so
 Copilot finds it either way. Gate B observed the Copilot CLI listing, selecting and resolving
 `references/` from a project skill with no `--allow-tool` flag.
+
+**Why `.github/skills/` is the canonical one.** Claude Code documents only `.claude/skills/`,
+so either path is reachable by both hosts with one of them symlinked. `.github/skills/` wins
+because it is Copilot's own convention — and because it is the path every Copilot gate in this
+file was *not* run from, which is the one thing the choice puts at risk. What was done about
+that is under "What is established, and what is not", below.
 
 To use it **outside** that workspace, the only Copilot path that delivers the corpus is two
 steps:
@@ -170,6 +164,25 @@ reading, so it does not transfer to a personally installed copy sitting outside 
 
 On Windows, clone with `core.symlinks=true`. Without it the link checks out as a one-line text
 file and Claude Code sees no skill at all — silently.
+
+---
+
+## Status: what is proven, and what is not
+
+**Phase 1 ships, and the package has been evaluated as it actually ships.** That is a decision
+record, not a mood: Gate E was re-run in full against the current corpus — 48 runs, lift met,
+**harm 0** — and rounds 1 and 2 had both run with `references/spec-facts.md` absent, so this is
+the first evaluation of the shipped article rather than of a degraded one. The authoritative
+corpus version is the one `references/rules.md` declares; this file is not a third source of
+truth for it.
+
+Everything below distinguishes what was measured from what was assumed, and **where a thing is
+unproven this file says so at the point it matters** rather than in a summary here. Two of those
+sit under Gate E, because they are the ones that bear on whether the package works at all:
+Copilot's selection rate is the gate's weakest number, and one design assumption was measured
+and **failed**. The others have their own sections — the `.github/instructions/` pointer, the
+`.github/prompts/` files beside it, the frontmatter's acceptance by the Skills API, and the
+write half of `npx skills add`.
 
 ---
 
