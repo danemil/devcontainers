@@ -41,10 +41,11 @@ from this repository's `git ls-files -s` — resolves exactly one path,
 `.claude/skills/devcontainers` as one mode-`120000` blob, the resolver only matches blobs whose
 path ends in `skill.md`, and there is no `.claude/skills/devcontainers/SKILL.md` tree entry at
 all. The raw-endpoint worry was misplaced — the CLI clones into a temp dir and copies the
-resolved folder, so `references/` is materialised by git. **What is left:** none of this was an
-end-to-end install (nothing was written to a global skills directory), and it was run against the
-local tree, not the tree GitHub is serving — these changes are unpushed. Re-run once pushed if
-you want the claim end-to-end. Pointing the other way, the move closes Gate C's residual: Copilot
+resolved folder, so `references/` is materialised by git. The check was then repeated against the tree the Git Trees API actually serves for the pushed
+branch — `.claude/skills/devcontainers` comes back as a `120000` blob, `.github/skills/devcontainers/`
+as a tree with `SKILL.md` and both `references/` files under it, and the resolver returns the same
+single path. **What is left:** none of this was an end-to-end install. Nothing was written to a
+global skills directory, so the write half of `npx skills add` is still unobserved. Pointing the other way, the move closes Gate C's residual: Copilot
 code review was only ever observed reading `.github/skills/`.
 
 **Also removed a dependency you may not expect.** `tools/wf-preflight.mjs` was referenced by

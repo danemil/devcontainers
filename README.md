@@ -126,10 +126,13 @@ seen this layout. What was done, and what it does and does not establish:
   **clones** the repository into a temporary directory and copies the resolved folder, so
   `references/` is materialised by git rather than fetched file by file — which is also the
   mechanism behind Gate A's fidelity PASS.
-- **This is resolution and mechanism, not an end-to-end install.** Nothing was written to a
-  global skills directory, and the layout is only established as installable once these changes
-  are pushed — the resolver was run against the local tree, which is the same shape GitHub will
-  serve, but not yet the tree GitHub is serving.
+- **Re-run against the tree GitHub actually serves, once the branch was pushed.** The Git Trees
+  API returns `.claude/skills/devcontainers` as a `120000` **blob** and
+  `.github/skills/devcontainers/` as a `040000` tree with its `SKILL.md` and both `references/`
+  files beneath it, exactly as predicted; the same extracted resolver returns the same single
+  path. The local-tree caveat this bullet used to carry is discharged.
+- **What is still not established is the install itself.** Nothing was written to a global
+  skills directory — resolution and fetch mechanism were checked, the write half was not.
 - **Gate B's PASS still transfers by documentation, not by observation.** Copilot's own help
   text lists `.github/skills/` alongside `.claude/skills/` as a Project source, which is why the
   claim above is written as "either way" — but nothing here has watched Copilot resolve
