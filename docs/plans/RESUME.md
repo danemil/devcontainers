@@ -213,6 +213,27 @@ repository, but naming the flags is not the same as achieving isolation, and rou
 egress block it actually controls. Full disclosure in `docs/gates/GATE-RESULTS.md` — see the
 round-4 subsection's weaknesses paragraph and "A NEW CONTAMINATION VECTOR".
 
+## The upstream PR is OPEN
+
+`github/awesome-copilot` **#2911**, opened 2026-09-02 against their `main` from
+`danemil/awesome-copilot:add-devcontainers-instructions`. Three files: the payload at
+`instructions/devcontainers.instructions.md`, one generated row in their instructions index,
+and two `ignore-words-list` entries in their `.codespellrc`. The sidecar `upstream/.generated-from`
+was **not** copied there, as it must never be.
+
+The two spell-checker entries are `implementors`, a path segment in the containers.dev
+specification URLs the payload cites, and `evaulated`, which the Dev Container Features
+specification itself misspells inside a passage the payload quotes verbatim. Correcting either
+would break a link or falsify a quote. Their `main` already carries four unrelated hits, so the
+standard applied was no new hits rather than a clean whole-repo run.
+
+The `Inputs:` field was deliberately **not** projected into the payload: it feeds an AUDIT
+bucket procedure the payload does not carry, and it would be unchecked on both sides.
+
+Watch for: their CI pins its own codespell version, so the two entries may be unnecessary; a
+duplicate-detector bot may comment; and the payload is now public in a third party's repository,
+so any corpus change from here needs a decision about whether to follow it with a second PR.
+
 ## Where round 4's evidence lives
 
 The raw traces for all eighteen round-4 runs, the grading notes and the verified evaluation
